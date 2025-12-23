@@ -13,6 +13,24 @@ This plugin ensures your main working directory remains clean while the AI works
 
 ## Installation
 
+### NPM
+
+Add to your `opencode.json`:
+
+```json
+{
+  "plugin": ["@yourusername/opencode-worktree-session"]
+}
+```
+
+Then run:
+
+```bash
+npm install @yourusername/opencode-worktree-session
+```
+
+### Manual
+
 1. Create a directory for the plugin in your OpenCode project:
    ```bash
    mkdir -p .opencode/plugins/git-worktree-session

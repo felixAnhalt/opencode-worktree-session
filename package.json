@@ -1,0 +1,43 @@
+{
+	"name": "@tmegit/opencode-worktree-session",
+	"version": "0.1.0",
+	"description": "OpenCode plugin that manages Git worktrees for AI sessions",
+	"keywords": [
+		"opencode",
+		"plugin",
+		"git",
+		"worktree",
+		"session"
+	],
+	"type": "module",
+	"main": "./.opencode/plugin/git-worktree-session.ts",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/felixAnhalt/opencode-worktree-session.git"
+	},
+	"homepage": "https://github.com/felixAnhalt/opencode-worktree-session#readme",
+	"bugs": {
+		"url": "https://github.com/felixAnhalt/opencode-worktree-session/issues"
+	},
+	"license": "Apache-2.0",
+	"author": "felixAnhalt",
+	"scripts": {
+		"typecheck": "tsc --noEmit",
+		"lint": "biome check --write .",
+		"format": "biome format --write ."
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.3.10",
+		"@opencode-ai/plugin": "1.0.193",
+		"@types/node": "24.1.0"
+	},
+	"peerDependencies": {
+		"@opencode-ai/plugin": ">=1.0.0"
+	},
+	"files": [
+		".opencode/"
+	],
+	"publishConfig": {
+		"access": "public"
+	}
+}
