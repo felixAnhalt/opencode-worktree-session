@@ -88,9 +88,13 @@ function branchExistsRemote(branch: string, cwd: string): boolean {
 }
 
 export const GitWorktreeSessionPlugin: Plugin = async () => {
+	console.log("[git-worktree-session] Plugin loaded");
 	return {
 		event: async ({ event }) => {
+			console.log(`[git-worktree-session] Event: ${event.type}`);
+
 			if (event.type === "session.created") {
+				console.log("[git-worktree-session] Session created");
 				const root = process.cwd();
 
 				if (!isGitRepo(root)) {
@@ -144,6 +148,7 @@ export const GitWorktreeSessionPlugin: Plugin = async () => {
 			}
 
 			if (event.type === "session.deleted") {
+				console.log("[git-worktree-session] Session deleted");
 				const state = getState();
 				if (!state.branch || !state.worktreePath) return;
 
