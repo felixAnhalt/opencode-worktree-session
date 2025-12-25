@@ -1,6 +1,6 @@
 # opencode-worktree-session
 
-A plugin for [OpenCode](https://opencode.ai) that automatically manages Git worktrees for every AI session. 
+A plugin for [OpenCode](https://opencode.ai) that automatically manages Git worktrees for every AI session. It was not built by the OpenCode team and is not affiliated with them in any way.
 
 This plugin ensures your main working directory remains clean while the AI works in an isolated branch. On session end, it automatically generates a commit message, pushes the branch, and removes the worktree.
 
