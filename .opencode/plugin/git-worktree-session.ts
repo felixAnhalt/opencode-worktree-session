@@ -7,7 +7,7 @@ import {
     writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
-import type { Plugin } from "@opencode-ai/plugin";
+import { tool, type Plugin } from "@opencode-ai/plugin";
 
 type State = {
     branch?: string;
@@ -27,9 +27,7 @@ function getState(): State {
 
 function setState(state: State): void {
     const dir = join(process.cwd(), ".opencode");
-    if (!existsSync(dir)) {
-        mkdirSync(dir, { recursive: true });
-    }
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
     writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
 }
 
@@ -86,17 +84,6 @@ function branchExistsRemote(branch: string, cwd: string): boolean {
 export const GitWorktreeSessionPlugin: Plugin = async ({ client }) => {
     return {
         event: async ({ event }) => {
-            // always toast event trigger
-            if(!event.type.includes("toast"))
-            client.tui.showToast({
-                body: {
-                    title: "Session Event Triggered",
-                    message: `Type: ${event.type}`,
-                    variant: "info"
-                },
-            });
-
-            // SESSION CREATED
             if (event.type === "session.created") {
                 const root = process.cwd();
 
@@ -106,53 +93,34 @@ export const GitWorktreeSessionPlugin: Plugin = async ({ client }) => {
                             title: "Git Error",
                             message: "Not a git repo",
                             variant: "error",
-                        }
+                        },
                     });
-                    throw new Error("Not a git repository");
+                    return;
                 }
 
                 const baseBranch = currentBranch(root);
-                if (!baseBranch) throw new Error("Detached HEAD not supported");
+                if (!baseBranch) return;
 
                 if (baseBranch === "main") {
                     client.tui.showToast({
                         body: {
                             title: "Blocked",
-                            message: "Refusing to run on main",
+                            message: "Refusing on main",
                             variant: "warning",
-                        }
+                        },
                     });
-                    throw new Error("Refusing to run on main");
+                    return;
                 }
-
-                const input = await prompt({
-                    message: "Branch name (e.g. feat/ABC-123):",
-                    required: true,
-                });
-
-                const branch = `${input}`;
-                if (branchExistsLocal(branch, root)) throw new Error(`Local exists`);
-                if (branchExistsRemote(branch, root)) throw new Error(`Remote exists`);
-
-                const worktreesRoot = join(root, ".opencode", "worktrees");
-                const worktreePath = join(worktreesRoot, branch);
-
-                if (!existsSync(worktreesRoot)) mkdirSync(worktreesRoot, { recursive: true });
-
-                run(`git worktree add "${worktreePath}" -b "${branch}" "${baseBranch}"`, root);
-
-                setState({ branch, worktreePath });
 
                 client.tui.showToast({
                     body: {
-                        title: "Session Ready",
-                        message: `Worktree created for ${branch}`,
-                        variant: "success",
-                    }
+                        title: "Session Created",
+                        message: "Run /createWorktree branch=feat/... to start",
+                        variant: "info",
+                    },
                 });
             }
 
-            // SESSION DELETED
             if (event.type === "session.deleted") {
                 const state = getState();
                 if (!state.branch || !state.worktreePath) return;
@@ -174,7 +142,7 @@ export const GitWorktreeSessionPlugin: Plugin = async ({ client }) => {
                             title: "Session Saved",
                             message: `Committed & cleaned ${state.branch}`,
                             variant: "success",
-                        }
+                        },
                     });
                 } catch (err) {
                     client.tui.showToast({
@@ -182,30 +150,43 @@ export const GitWorktreeSessionPlugin: Plugin = async ({ client }) => {
                             title: "Cleanup Failed",
                             message: String(err),
                             variant: "error",
-                        }
+                        },
                     });
                 } finally {
                     clearState();
                 }
             }
         },
+
+        tool: {
+            createWorktree: tool({
+                description: "Create git worktree for this session",
+                args: {
+                    branch: tool.schema.string(),
+                },
+                async execute({ branch }) {
+                    const root = process.cwd();
+
+                    if (!isGitRepo(root)) return "Not a git repo";
+
+                    const baseBranch = currentBranch(root);
+                    if (!baseBranch) return "Detached HEAD";
+
+                    if (branchExistsLocal(branch, root)) return "Local branch exists";
+                    if (branchExistsRemote(branch, root)) return "Remote exists";
+
+                    const worktreesRoot = join(root, ".opencode", "worktrees");
+                    const worktreePath = join(worktreesRoot, branch);
+
+                    if (!existsSync(worktreesRoot)) mkdirSync(worktreesRoot, { recursive: true });
+
+                    run(`git worktree add "${worktreePath}" -b "${branch}" "${baseBranch}"`, root);
+
+                    setState({ branch, worktreePath });
+
+                    return `Created worktree ${branch}`;
+                },
+            }),
+        },
     };
 };
-
-function prompt(options: { message: string; required?: boolean }): Promise<string> {
-    const mock = (globalThis as any).__test_prompt_mock__;
-    if (mock) return mock(options);
-
-    const readline = require("node:readline");
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-    });
-
-    return new Promise((resolve) => {
-        rl.question(`${options.message} `, (answer: string) => {
-            rl.close();
-            resolve(answer.trim());
-        });
-    });
-}
