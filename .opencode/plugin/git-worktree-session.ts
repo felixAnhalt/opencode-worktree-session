@@ -184,6 +184,21 @@ export const GitWorktreeSessionPlugin: Plugin = async ({ client }) => {
 
                     setState({ branch, worktreePath });
 
+                    // Inside your execute function
+                    await client.tui.executeCommand({
+                        body: {
+                            command: `cd ${worktreePath}`
+                        }
+                    });
+
+                    client.tui.showToast({
+                        body: {
+                            title: "Worktree Active",
+                            message: `AI context moved to ${worktreePath}`,
+                            variant: "success",
+                        },
+                    });
+
                     return `Created worktree ${branch}`;
                 },
             }),
