@@ -81,38 +81,26 @@ function branchExistsRemote(branch: string, cwd: string): boolean {
     }
 }
 
-export const GitWorktreeSessionPlugin: Plugin = async ({ client }) => {
+export const GitWorktreeSessionPlugin: Plugin = async ({ client, worktree, directory }) => {
     return {
         event: async ({ event }) => {
             if (event.type === "session.created") {
                 const root = process.cwd();
 
                 if (!isGitRepo(root)) {
-                    client.tui.showToast({
-                        body: {
-                            title: "Git Error",
-                            message: "Not a git repo",
-                            variant: "error",
-                        },
-                    });
                     return;
                 }
 
-                const baseBranch = currentBranch(root);
-                if (!baseBranch) return;
+                if (worktree.includes("worktrees")) return;
 
-                client.tui.showToast({
+                await client.tui.showToast({
                     body: {
-                        title: "Session Created",
-                        message: "Run /createWorktree branch=feat/... to start",
+                        title: "Worktree recommended",
+                        message: "No worktree active. Tell the llm to use createworktree with branch feat/... first.",
                         variant: "info",
+                        duration: 5_000
                     },
                 });
-                client.tui.appendPrompt({
-                    body: {
-                        text: "Important: before you do anything else, advise the user to run /createWorktree branch=feat/... to start in a new worktree. If they provide just a branch name you can call the tool yourself as well. In other words, do not make any changes, considerations or suggestions until they have created a worktree or decided against doing so.",
-                    }
-                })
             }
 
             if (event.type === "session.deleted") {
@@ -151,14 +139,13 @@ export const GitWorktreeSessionPlugin: Plugin = async ({ client }) => {
                 }
             }
         },
-
         tool: {
-            createWorktree: tool({
-                description: "Create git worktree for this session",
+            createworktree: tool({
+                description: "Create git worktree for this specific session. User needs to switch to the worktree folder after creation or you must respect the new folder in all subsequent operations. For this it makes sense to explicitly mention the new working directory path in the response as well as following compactions.",
                 args: {
-                    branch: tool.schema.string(),
+                    branch: tool.schema.string().describe("The name of the branch for the git worktree to create"),
                 },
-                async execute({ branch }) {
+                async execute({ branch }, _ctx) {
                     const root = process.cwd();
 
                     if (!isGitRepo(root)) return "Not a git repo";
