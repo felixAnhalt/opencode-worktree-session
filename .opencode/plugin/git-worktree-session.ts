@@ -1,208 +1,211 @@
 import { execSync } from "node:child_process";
 import {
-	existsSync,
-	mkdirSync,
-	readFileSync,
-	unlinkSync,
-	writeFileSync,
+    existsSync,
+    mkdirSync,
+    readFileSync,
+    unlinkSync,
+    writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
 import type { Plugin } from "@opencode-ai/plugin";
 
 type State = {
-	branch?: string;
-	worktreePath?: string;
+    branch?: string;
+    worktreePath?: string;
 };
 
-const STATE_FILE = join(
-	process.cwd(),
-	".opencode",
-	"worktree-session-state.json",
-);
+const STATE_FILE = join(process.cwd(), ".opencode", "worktree-session-state.json");
 
 function getState(): State {
-	try {
-		if (existsSync(STATE_FILE)) {
-			return JSON.parse(readFileSync(STATE_FILE, "utf-8"));
-		}
-	} catch {}
-	return {};
+    try {
+        if (existsSync(STATE_FILE)) {
+            return JSON.parse(readFileSync(STATE_FILE, "utf-8"));
+        }
+    } catch {}
+    return {};
 }
 
 function setState(state: State): void {
-	const dir = join(process.cwd(), ".opencode");
-	if (!existsSync(dir)) {
-		mkdirSync(dir, { recursive: true });
-	}
-	writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+    const dir = join(process.cwd(), ".opencode");
+    if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+    }
+    writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
 }
 
 function clearState(): void {
-	try {
-		unlinkSync(STATE_FILE);
-	} catch {}
+    try {
+        unlinkSync(STATE_FILE);
+    } catch {}
 }
 
 function run(cmd: string, cwd?: string): string {
-	return execSync(cmd, {
-		cwd,
-		stdio: ["ignore", "pipe", "pipe"],
-	})
-		.toString()
-		.trim();
+    return execSync(cmd, {
+        cwd,
+        stdio: ["ignore", "pipe", "pipe"],
+    })
+        .toString()
+        .trim();
 }
 
 function isGitRepo(cwd: string): boolean {
-	try {
-		run("git rev-parse --is-inside-work-tree", cwd);
-		return true;
-	} catch {
-		return false;
-	}
+    try {
+        run("git rev-parse --is-inside-work-tree", cwd);
+        return true;
+    } catch {
+        return false;
+    }
 }
 
 function currentBranch(cwd: string): string {
-	return run("git branch --show-current", cwd);
+    return run("git branch --show-current", cwd);
 }
 
 function hasChanges(cwd: string): boolean {
-	return run("git status --porcelain", cwd).length > 0;
+    return run("git status --porcelain", cwd).length > 0;
 }
 
 function branchExistsLocal(branch: string, cwd: string): boolean {
-	try {
-		run(`git show-ref --verify --quiet refs/heads/${branch}`, cwd);
-		return true;
-	} catch {
-		return false;
-	}
+    try {
+        run(`git show-ref --verify --quiet refs/heads/${branch}`, cwd);
+        return true;
+    } catch {
+        return false;
+    }
 }
 
 function branchExistsRemote(branch: string, cwd: string): boolean {
-	try {
-		run(`git ls-remote --exit-code --heads origin ${branch}`, cwd);
-		return true;
-	} catch {
-		return false;
-	}
+    try {
+        run(`git ls-remote --exit-code --heads origin ${branch}`, cwd);
+        return true;
+    } catch {
+        return false;
+    }
 }
 
-export const GitWorktreeSessionPlugin: Plugin = async ({ $ }) => {
-	console.log("[git-worktree-session] Plugin loaded");
-	return {
-		event: async ({ event }) => {
-			console.log(`[git-worktree-session] Event: ${event.type}`);
-            await $`osascript -e 'display notification "${event.type}" with title "opencode"'`
+export const GitWorktreeSessionPlugin: Plugin = async ({ client }) => {
+    return {
+        event: async ({ event }) => {
+            // always toast event trigger
+            if(!event.type.includes("toast"))
+            client.tui.showToast({
+                body: {
+                    title: "Session Event Triggered",
+                    message: `Type: ${event.type}`,
+                    variant: "info"
+                },
+            });
 
-
+            // SESSION CREATED
             if (event.type === "session.created") {
-				console.log("[git-worktree-session] Session created");
-				const root = process.cwd();
+                const root = process.cwd();
 
-				if (!isGitRepo(root)) {
-					throw new Error("Not a git repository");
-				}
+                if (!isGitRepo(root)) {
+                    client.tui.showToast({
+                        body: {
+                            title: "Git Error",
+                            message: "Not a git repo",
+                            variant: "error",
+                        }
+                    });
+                    throw new Error("Not a git repository");
+                }
 
-				const baseBranch = currentBranch(root);
-				if (!baseBranch) {
-					throw new Error("Detached HEAD not supported");
-				}
+                const baseBranch = currentBranch(root);
+                if (!baseBranch) throw new Error("Detached HEAD not supported");
 
-				if (baseBranch === "main") {
-					throw new Error("Refusing to run on main");
-				}
+                if (baseBranch === "main") {
+                    client.tui.showToast({
+                        body: {
+                            title: "Blocked",
+                            message: "Refusing to run on main",
+                            variant: "warning",
+                        }
+                    });
+                    throw new Error("Refusing to run on main");
+                }
 
-				const input = await prompt({
-					message: "Branch name (e.g. feat/ABC-123):",
-					required: true,
-				});
+                const input = await prompt({
+                    message: "Branch name (e.g. feat/ABC-123):",
+                    required: true,
+                });
 
-				const branch = `opencode/${input}`;
+                const branch = `${input}`;
+                if (branchExistsLocal(branch, root)) throw new Error(`Local exists`);
+                if (branchExistsRemote(branch, root)) throw new Error(`Remote exists`);
 
-				if (branchExistsLocal(branch, root)) {
-					throw new Error(`Local branch already exists: ${branch}`);
-				}
+                const worktreesRoot = join(root, ".opencode", "worktrees");
+                const worktreePath = join(worktreesRoot, branch);
 
-				if (branchExistsRemote(branch, root)) {
-					throw new Error(`Remote branch already exists: origin/${branch}`);
-				}
+                if (!existsSync(worktreesRoot)) mkdirSync(worktreesRoot, { recursive: true });
 
-				const worktreesRoot = join(root, ".opencode", "worktrees");
-				const worktreePath = join(worktreesRoot, branch);
+                run(`git worktree add "${worktreePath}" -b "${branch}" "${baseBranch}"`, root);
 
-				if (!existsSync(worktreesRoot)) {
-					mkdirSync(worktreesRoot, { recursive: true });
-				}
+                setState({ branch, worktreePath });
 
-				run(
-					`git worktree add "${worktreePath}" -b "${branch}" "${baseBranch}"`,
-					root,
-				);
+                client.tui.showToast({
+                    body: {
+                        title: "Session Ready",
+                        message: `Worktree created for ${branch}`,
+                        variant: "success",
+                    }
+                });
+            }
 
-				const state: State = {
-					branch,
-					worktreePath,
-				};
-				setState(state);
+            // SESSION DELETED
+            if (event.type === "session.deleted") {
+                const state = getState();
+                if (!state.branch || !state.worktreePath) return;
 
-				console.log(`Worktree created: ${worktreePath}`);
-				console.log(`Branch: ${branch}`);
-			}
+                const root = process.cwd();
+                const cwd = state.worktreePath;
 
-			if (event.type === "session.deleted") {
-				console.log("[git-worktree-session] Session deleted");
-				const state = getState();
-				if (!state.branch || !state.worktreePath) return;
+                try {
+                    if (hasChanges(cwd)) {
+                        run("git add -A", cwd);
+                        run(`git commit -m "chore(opencode): session snapshot"`, cwd);
+                        run(`git push -u origin "${state.branch}"`, cwd);
+                    }
 
-				const root = process.cwd();
-				const cwd = state.worktreePath;
+                    run(`git worktree remove "${state.worktreePath}" --force`, root);
 
-				try {
-					if (hasChanges(cwd)) {
-						const message = "chore(opencode): session snapshot";
-
-						run("git add -A", cwd);
-						run(`git commit -m "${message.replace(/"/g, '\\"')}"`, cwd);
-						run(`git push -u origin "${state.branch}"`, cwd);
-					}
-
-					run(`git worktree remove "${state.worktreePath}" --force`, root);
-
-					console.log("Session committed, pushed, and cleaned up");
-				} catch (err) {
-					console.error(`Session cleanup failed: ${String(err)}`);
-				} finally {
-					clearState();
-				}
-			}
-		},
-	};
+                    client.tui.showToast({
+                        body: {
+                            title: "Session Saved",
+                            message: `Committed & cleaned ${state.branch}`,
+                            variant: "success",
+                        }
+                    });
+                } catch (err) {
+                    client.tui.showToast({
+                        body: {
+                            title: "Cleanup Failed",
+                            message: String(err),
+                            variant: "error",
+                        }
+                    });
+                } finally {
+                    clearState();
+                }
+            }
+        },
+    };
 };
 
-function prompt(options: {
-	message: string;
-	required?: boolean;
-}): Promise<string> {
-	const mock = (
-		globalThis as unknown as {
-			__test_prompt_mock__?: (opts: typeof options) => Promise<string>;
-		}
-	).__test_prompt_mock__;
+function prompt(options: { message: string; required?: boolean }): Promise<string> {
+    const mock = (globalThis as any).__test_prompt_mock__;
+    if (mock) return mock(options);
 
-	if (mock) {
-		return mock(options);
-	}
+    const readline = require("node:readline");
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+    });
 
-	const readline = require("node:readline");
-	const rl = readline.createInterface({
-		input: process.stdin,
-		output: process.stdout,
-	});
-
-	return new Promise((resolve) => {
-		rl.question(`${options.message} `, (answer: string) => {
-			rl.close();
-			resolve(answer.trim());
-		});
-	});
+    return new Promise((resolve) => {
+        rl.question(`${options.message} `, (answer: string) => {
+            rl.close();
+            resolve(answer.trim());
+        });
+    });
 }

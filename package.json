@@ -24,12 +24,16 @@
 	"scripts": {
 		"typecheck": "tsc --noEmit",
 		"lint": "biome check --write .",
-		"format": "biome format --write ."
+		"format": "biome format --write .",
+		"test": "vitest",
+		"test:ui": "vitest --ui"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.3.10",
 		"@opencode-ai/plugin": "1.0.193",
-		"@types/node": "24.1.0"
+		"@types/node": "24.1.0",
+		"@vitest/ui": "4.0.16",
+		"vitest": "4.0.16"
 	},
 	"peerDependencies": {
 		"@opencode-ai/plugin": ">=1.0.0"

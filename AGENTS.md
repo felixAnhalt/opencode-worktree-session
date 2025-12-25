@@ -3,6 +3,9 @@
 This is a TypeScript OpenCode plugin - no build steps required, files are loaded directly.
 
 **Commands:**
+- `npm test` - Run all tests
+- `npm run test -- tests/plugin.test.ts` - Run single test file
+- `npm run test:ui` - Run tests with UI
 - `npm run typecheck` - Run TypeScript type checking
 - `npm run lint` - Run Biome linter and auto-fix issues
 - `npm run format` - Format code with Biome
