@@ -31,9 +31,7 @@
 	"devDependencies": {
 		"@biomejs/biome": "2.3.10",
 		"@opencode-ai/plugin": "1.0.193",
-		"@types/node": "24.1.0",
-		"@vitest/ui": "4.0.16",
-		"vitest": "4.0.16"
+		"@types/node": "24.1.0"
 	},
 	"peerDependencies": {
 		"@opencode-ai/plugin": ">=1.0.0"

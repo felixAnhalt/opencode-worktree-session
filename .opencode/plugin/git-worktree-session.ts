@@ -101,17 +101,6 @@ export const GitWorktreeSessionPlugin: Plugin = async ({ client }) => {
                 const baseBranch = currentBranch(root);
                 if (!baseBranch) return;
 
-                if (baseBranch === "main") {
-                    client.tui.showToast({
-                        body: {
-                            title: "Blocked",
-                            message: "Refusing on main",
-                            variant: "warning",
-                        },
-                    });
-                    return;
-                }
-
                 client.tui.showToast({
                     body: {
                         title: "Session Created",
@@ -119,6 +108,11 @@ export const GitWorktreeSessionPlugin: Plugin = async ({ client }) => {
                         variant: "info",
                     },
                 });
+                client.tui.appendPrompt({
+                    body: {
+                        text: "Important: before you do anything else, advise the user to run /createWorktree branch=feat/... to start in a new worktree. If they provide just a branch name you can call the tool yourself as well. In other words, do not make any changes, considerations or suggestions until they have created a worktree or decided against doing so.",
+                    }
+                })
             }
 
             if (event.type === "session.deleted") {
