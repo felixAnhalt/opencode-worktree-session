@@ -87,13 +87,15 @@ function branchExistsRemote(branch: string, cwd: string): boolean {
 	}
 }
 
-export const GitWorktreeSessionPlugin: Plugin = async () => {
+export const GitWorktreeSessionPlugin: Plugin = async ({ $ }) => {
 	console.log("[git-worktree-session] Plugin loaded");
 	return {
 		event: async ({ event }) => {
 			console.log(`[git-worktree-session] Event: ${event.type}`);
+            await $`osascript -e 'display notification "${event.type}" with title "opencode"'`
 
-			if (event.type === "session.created") {
+
+            if (event.type === "session.created") {
 				console.log("[git-worktree-session] Session created");
 				const root = process.cwd();
 
@@ -181,6 +183,16 @@ function prompt(options: {
 	message: string;
 	required?: boolean;
 }): Promise<string> {
+	const mock = (
+		globalThis as unknown as {
+			__test_prompt_mock__?: (opts: typeof options) => Promise<string>;
+		}
+	).__test_prompt_mock__;
+
+	if (mock) {
+		return mock(options);
+	}
+
 	const readline = require("node:readline");
 	const rl = readline.createInterface({
 		input: process.stdin,

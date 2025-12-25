@@ -19,14 +19,14 @@ Add to your `opencode.json`:
 
 ```json
 {
-  "plugin": ["@yourusername/opencode-worktree-session"]
+  "plugin": ["@tmegit/opencode-worktree-session"]
 }
 ```
 
 Then run:
 
 ```bash
-npm install @yourusername/opencode-worktree-session
+npm install @tmegit/opencode-worktree-session
 ```
 
 ### Manual
