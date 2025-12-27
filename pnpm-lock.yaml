@@ -12,8 +12,8 @@ importers:
         specifier: 2.3.10
         version: 2.3.10
       '@opencode-ai/plugin':
-        specifier: 1.0.193
-        version: 1.0.193
+        specifier: 1.0.200
+        version: 1.0.200
       '@types/node':
         specifier: 24.1.0
         version: 24.1.0
@@ -73,11 +73,11 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@opencode-ai/plugin@1.0.193':
-    resolution: {integrity: sha512-EazUjz+phR6vI+xRLGXSJGZ06qsJ+bkR5nd5nJZk7oAWJhGvFYQMAAtWoTquESpCJKwL67fYnuz0mE1hThnREw==}
+  '@opencode-ai/plugin@1.0.200':
+    resolution: {integrity: sha512-1qVeR6II8/DJI/Xp01TW59YjANyPf74//V2+kHUThQ7fIRVVTZJRDj82HjFyjUSOEA1FRcQ7tCGl1zD5X2P/aQ==}
 
-  '@opencode-ai/sdk@1.0.193':
-    resolution: {integrity: sha512-q9lfbWMgJseIJXV61TZcj2tJddClFAADnPdwGjKqNyHyBl0AQl2lrd572vlFnaoqLpBb+GZ/mHDQv3rY9BX9oQ==}
+  '@opencode-ai/sdk@1.0.200':
+    resolution: {integrity: sha512-dwGsm0V7cJpYglcn6ChrcftCHzDBq/TZFC1qne4zym9jy5r4I1osCjlmZf5935ZriOQtUAdCP3s+wVcOERHBdA==}
 
   '@types/node@24.1.0':
     resolution: {integrity: sha512-ut5FthK5moxFKH2T1CUOC6ctR67rQRvvHdFLCD2Ql6KXmMuCrjsSsRI9UsLCm9M18BMwClv4pn327UvB7eeO1w==}
@@ -125,12 +125,12 @@ snapshots:
   '@biomejs/cli-win32-x64@2.3.10':
     optional: true
 
-  '@opencode-ai/plugin@1.0.193':
+  '@opencode-ai/plugin@1.0.200':
     dependencies:
-      '@opencode-ai/sdk': 1.0.193
+      '@opencode-ai/sdk': 1.0.200
       zod: 4.1.8
 
-  '@opencode-ai/sdk@1.0.193': {}
+  '@opencode-ai/sdk@1.0.200': {}
 
   '@types/node@24.1.0':
     dependencies:

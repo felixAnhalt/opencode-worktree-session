@@ -30,7 +30,7 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.3.10",
-		"@opencode-ai/plugin": "1.0.193",
+		"@opencode-ai/plugin": "1.0.200",
 		"@types/node": "24.1.0"
 	},
 	"peerDependencies": {
