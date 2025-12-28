@@ -7,7 +7,7 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
-import { tool, type Plugin } from "@opencode-ai/plugin";
+import { type Plugin, tool } from "@opencode-ai/plugin";
 
 type State = {
 	branch?: string;
@@ -125,53 +125,6 @@ export const GitWorktreeSessionPlugin: Plugin = async ({
 }) => {
 	return {
 		event: async ({ event }) => {
-			if (event.type === "session.created") {
-				const root = process.cwd();
-				if (!isGitRepo(root)) return;
-				if (worktree.includes("worktrees")) return;
-
-				// Delay to ensure session is fully initialized
-				setTimeout(async () => {
-					try {
-						const result = await client.session.prompt({
-							path: { id: event.properties.info.id },
-							body: {
-								noReply: true,
-								parts: [
-									{
-										type: "text",
-										text: "IMPORTANT: A 'createworktree' tool is available for creating isolated git worktrees. When the user mentions creating a branch or feature, proactively suggest or use this tool.",
-									},
-								],
-							},
-						});
-                        // log data to file for debugging
-                        writeFileSync(
-                            join(process.cwd(), ".opencode", "worktree-hint-log.json"),
-                            JSON.stringify(result, null, 2),
-                        );
-					} catch (error) {
-						const errorDetails = {
-							message: error instanceof Error ? error.message : String(error),
-							stack: error instanceof Error ? error.stack : undefined,
-							error: error,
-						};
-						writeFileSync(
-							join(process.cwd(), ".opencode", "worktree-hint-error.json"),
-							JSON.stringify(errorDetails, null, 2),
-						);
-                        // show toast on error
-                        client.tui.showToast({
-                            body: {
-                                title: "Worktree Hint Error",
-                                message: String(error),
-                                variant: "error",
-                            },
-                        });
-					}
-				}, 1000);
-			}
-
 			if (event.type === "session.deleted") {
 				const state = getState();
 				if (!state.branch || !state.worktreePath) return;
@@ -207,6 +160,20 @@ export const GitWorktreeSessionPlugin: Plugin = async ({
 					clearState();
 				}
 			}
+		},
+
+		/**
+		 * System prompt assembly
+		 * This is the cleanest place to inject global rules
+		 */
+		"experimental.chat.system.transform": async (_input, output) => {
+			const root = process.cwd();
+			if (!isGitRepo(root)) return;
+			if (worktree.includes("worktrees")) return;
+			const text =
+				"IMPORTANT: A 'createworktree' tool is available for creating isolated git worktrees. When the user mentions creating a branch or wants to start a new feature, proactively suggest or use this tool. Ask for a branch name if not provided.";
+
+			output.system.push(text);
 		},
 		tool: {
 			createworktree: tool({
