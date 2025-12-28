@@ -85,15 +85,15 @@ function branchExistsRemote(branch: string, cwd: string): boolean {
 	}
 }
 
-function openNewOpencodeSession(worktreePath: string) {
-	const platform = process.platform;
+function openOpencodeInDefaultTerminal(worktreePath: string, sessionId: string) {
+    const platform = process.platform;
 
 	if (platform === "darwin") {
 		const child = spawn(
 			"osascript",
 			[
 				`-e`,
-				`tell application "Terminal" to do script "cd ${worktreePath} && opencode"`,
+				`tell application "Terminal" to do script "cd ${worktreePath} && opencode --session ${sessionId}"`,
 			],
 			{ detached: true, stdio: "ignore" },
 		);
@@ -101,27 +101,27 @@ function openNewOpencodeSession(worktreePath: string) {
 		return;
 	}
 
-	if (platform === "win32") {
-		const child = spawn(
-			"wt",
-			["-w", "0", "nt", "-d", worktreePath, "opencode"],
-			{ detached: true, stdio: "ignore" },
-		);
-		child.unref();
-		return;
-	}
+    if (platform === "win32") {
+        spawn(
+            "cmd",
+            ["/c", "start", "cmd", "/k", `cd /d "${worktreePath}" && opencode --session ${sessionId}`],
+            { detached: true, stdio: "ignore" }
+        ).unref();
+        return;
+    }
 
-	const child = spawn(
-		"gnome-terminal",
-		["--", "bash", "-c", `cd '${worktreePath}' && opencode`],
-		{ detached: true, stdio: "ignore" },
-	);
-	child.unref();
+    // Linux / BSD
+    spawn(
+        "xdg-terminal-exec",
+        ["bash", "-lc", `cd '${worktreePath}' && opencode --session ${sessionId}`],
+        { detached: true, stdio: "ignore" }
+    ).unref();
 }
 
 export const GitWorktreeSessionPlugin: Plugin = async ({
 	client,
 	worktree,
+    project
 }) => {
 	return {
 		event: async ({ event }) => {
@@ -216,7 +216,7 @@ export const GitWorktreeSessionPlugin: Plugin = async ({
 						},
 					});
 
-					openNewOpencodeSession(worktreePath);
+					openOpencodeInDefaultTerminal(worktreePath, project.id);
 
 					return `Created worktree ${worktreePath} for branch ${branch}. A new opencode instance is opening there now.`;
 				},
