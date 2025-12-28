@@ -130,18 +130,46 @@ export const GitWorktreeSessionPlugin: Plugin = async ({
 				if (!isGitRepo(root)) return;
 				if (worktree.includes("worktrees")) return;
 
-				client.session.prompt({
-					path: { id: event.properties.info.id },
-					body: {
-						noReply: true,
-						parts: [
-							{
-								type: "text",
-								text: "Hint from plugin opencode-worktree-session: A tool for automatic git worktree creation is available. Call tool `createworktree`.",
+				// Delay to ensure session is fully initialized
+				setTimeout(async () => {
+					try {
+						const result = await client.session.prompt({
+							path: { id: event.properties.info.id },
+							body: {
+								noReply: true,
+								parts: [
+									{
+										type: "text",
+										text: "IMPORTANT: A 'createworktree' tool is available for creating isolated git worktrees. When the user mentions creating a branch or feature, proactively suggest or use this tool.",
+									},
+								],
 							},
-						],
-					},
-				});
+						});
+                        // log data to file for debugging
+                        writeFileSync(
+                            join(process.cwd(), ".opencode", "worktree-hint-log.json"),
+                            JSON.stringify(result, null, 2),
+                        );
+					} catch (error) {
+						const errorDetails = {
+							message: error instanceof Error ? error.message : String(error),
+							stack: error instanceof Error ? error.stack : undefined,
+							error: error,
+						};
+						writeFileSync(
+							join(process.cwd(), ".opencode", "worktree-hint-error.json"),
+							JSON.stringify(errorDetails, null, 2),
+						);
+                        // show toast on error
+                        client.tui.showToast({
+                            body: {
+                                title: "Worktree Hint Error",
+                                message: String(error),
+                                variant: "error",
+                            },
+                        });
+					}
+				}, 1000);
 			}
 
 			if (event.type === "session.deleted") {
@@ -180,7 +208,6 @@ export const GitWorktreeSessionPlugin: Plugin = async ({
 				}
 			}
 		},
-
 		tool: {
 			createworktree: tool({
 				description:
