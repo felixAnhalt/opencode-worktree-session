@@ -12,6 +12,7 @@ import { type Plugin, tool } from "@opencode-ai/plugin";
 type State = {
 	branch?: string;
 	worktreePath?: string;
+    sessionId?: string;
 };
 
 const STATE_FILE = join(
@@ -29,10 +30,11 @@ function getState(): State {
 	return {};
 }
 
-function setState(state: State): void {
-	const dir = join(process.cwd(), ".opencode");
-	if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-	writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+function setState(patch: Partial<State>): void {
+    const dir = join(process.cwd(), ".opencode");
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    const prev = getState();
+    writeFileSync(STATE_FILE, JSON.stringify({ ...prev, ...patch }, null, 2));
 }
 
 function clearState(): void {
@@ -121,10 +123,22 @@ function openOpencodeInDefaultTerminal(worktreePath: string, sessionId: string) 
 export const GitWorktreeSessionPlugin: Plugin = async ({
 	client,
 	worktree,
-    project
 }) => {
 	return {
 		event: async ({ event }) => {
+            if (event.type === "session.created") {
+                // first check if we are in a gittree
+                const root = process.cwd();
+                if (!isGitRepo(root)) return;
+                if (worktree.includes("worktrees")) return;
+
+                const sessionId = event.properties?.info?.id;
+                if (typeof sessionId === "string") {
+                    setState({ sessionId });
+                }
+                return;
+            }
+
 			if (event.type === "session.deleted") {
 				const state = getState();
 				if (!state.branch || !state.worktreePath) return;
@@ -208,15 +222,19 @@ export const GitWorktreeSessionPlugin: Plugin = async ({
 
 					setState({ branch, worktreePath });
 
+                    const { sessionId } = getState();
+
 					client.tui.showToast({
 						body: {
 							title: "Launching Session",
-							message: `Opening opencode in ${branch}`,
+							message: `Opening opencode in ${branch} with session ${sessionId}`,
 							variant: "info",
 						},
 					});
 
-					openOpencodeInDefaultTerminal(worktreePath, project.id);
+                    if (!sessionId) throw "Missing sessionId (session.created not captured yet)";
+
+                    openOpencodeInDefaultTerminal(worktreePath, sessionId);
 
 					return `Created worktree ${worktreePath} for branch ${branch}. A new opencode instance is opening there now.`;
 				},
