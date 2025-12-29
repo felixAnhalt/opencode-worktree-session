@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import type { CleanupResult } from "./types";
+import type { CleanupResult } from "./types.ts";
 import {
 	branchExistsLocal,
 	branchExistsRemote,
@@ -10,7 +10,7 @@ import {
 	hasChanges,
 	isGitRepo,
 	removeWorktree,
-} from "./git";
+} from "./git.ts";
 
 export const cleanupWorktree = (
 	directory: string,
