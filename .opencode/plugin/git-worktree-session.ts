@@ -1,205 +1,41 @@
-import { execSync, spawn } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { type Plugin, tool } from "@opencode-ai/plugin";
-
-type SessionState = {
-	sessionId: string;
-	branch?: string;
-	worktreePath?: string;
-	createdAt: number;
-};
-
-type StateFile = {
-	sessions: Record<string, SessionState>;
-};
-
-function getStateFilePath(repoRoot: string): string {
-	return join(repoRoot, ".opencode", "worktree-session-state.json");
-}
-
-function readStateFile(repoRoot: string): StateFile {
-	try {
-		const stateFile = getStateFilePath(repoRoot);
-		if (existsSync(stateFile)) {
-			return JSON.parse(readFileSync(stateFile, "utf-8"));
-		}
-	} catch {}
-	return { sessions: {} };
-}
-
-function writeStateFile(repoRoot: string, state: StateFile) {
-	const dir = join(repoRoot, ".opencode");
-	if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-	const stateFile = getStateFilePath(repoRoot);
-	writeFileSync(stateFile, JSON.stringify(state, null, 2));
-}
-
-function upsertSession(
-	repoRoot: string,
-	sessionId: string,
-	patch: Partial<SessionState>,
-) {
-	const state = readStateFile(repoRoot);
-	const prev = state.sessions[sessionId] ?? {
-		sessionId,
-		createdAt: Date.now(),
-	};
-	state.sessions[sessionId] = { ...prev, ...patch, sessionId };
-	writeStateFile(repoRoot, state);
-}
-
-function getSession(
-	repoRoot: string,
-	sessionId: string,
-): SessionState | undefined {
-	const state = readStateFile(repoRoot);
-	return state.sessions[sessionId];
-}
-
-function deleteSession(repoRoot: string, sessionId: string) {
-	const state = readStateFile(repoRoot);
-	delete state.sessions[sessionId];
-	writeStateFile(repoRoot, state);
-}
-
-function run(cmd: string, cwd?: string): string {
-	return execSync(cmd, {
-		cwd,
-		stdio: ["ignore", "pipe", "pipe"],
-	})
-		.toString()
-		.trim();
-}
-
-function isGitRepo(cwd: string): boolean {
-	try {
-		run("git rev-parse --is-inside-work-tree", cwd);
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-function currentBranch(cwd: string): string {
-	return run("git branch --show-current", cwd);
-}
-
-function hasChanges(cwd: string): boolean {
-	return run("git status --porcelain", cwd).length > 0;
-}
-
-function branchExistsLocal(branch: string, cwd: string): boolean {
-	try {
-		run(`git show-ref --verify --quiet refs/heads/${branch}`, cwd);
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-function branchExistsRemote(branch: string, cwd: string): boolean {
-	try {
-		run(`git ls-remote --exit-code --heads origin ${branch}`, cwd);
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-function openOpencodeInDefaultTerminal(
-	worktreePath: string,
-	sessionId: string,
-) {
-	const platform = process.platform;
-
-	if (platform === "darwin") {
-		const child = spawn(
-			"osascript",
-			[
-				`-e`,
-				`tell application "Terminal" to do script "cd ${worktreePath} && opencode --session ${sessionId}"`,
-			],
-			{ detached: true, stdio: "ignore" },
-		);
-		child.unref();
-		return;
-	}
-
-	if (platform === "win32") {
-		spawn(
-			"cmd",
-			[
-				"/c",
-				"start",
-				"cmd",
-				"/k",
-				`cd /d "${worktreePath}" && opencode --session ${sessionId}`,
-			],
-			{ detached: true, stdio: "ignore" },
-		).unref();
-		return;
-	}
-
-	// Linux / BSD
-	spawn(
-		"xdg-terminal-exec",
-		["bash", "-lc", `cd '${worktreePath}' && opencode --session ${sessionId}`],
-		{ detached: true, stdio: "ignore" },
-	).unref();
-}
+import { isGitRepo } from "./git";
+import { deleteSession, getSession, upsertSession } from "./state";
+import { openOpencodeInDefaultTerminal } from "./terminal";
+import { cleanupWorktree, createWorktreeSession } from "./worktree";
 
 export const GitWorktreeSessionPlugin: Plugin = async ({
 	client,
 	worktree,
 	directory,
 }) => {
+	// Ensure directory is a string
+	const repoRoot: string = String(directory);
+
 	return {
 		event: async ({ event }) => {
-			// write all events to file
-			const allEventsFile = join(
-				directory,
-				".opencode",
-				"worktree-event-log-2.json",
-			);
-			let allEvents: any[] = [];
-			try {
-				if (existsSync(allEventsFile)) {
-					allEvents = JSON.parse(readFileSync(allEventsFile, "utf-8"));
-				}
-			} catch {}
-			allEvents.push({ timestamp: Date.now(), event });
-			writeFileSync(allEventsFile, JSON.stringify(allEvents, null, 2));
-
 			if (event.type === "session.created") {
-				// first check if we are in a gittree
-				if (!isGitRepo(directory)) return;
+				if (!isGitRepo(repoRoot)) return;
 				if (worktree.includes("worktrees")) return;
 
 				const sessionId = event.properties?.info?.id;
-				upsertSession(directory, sessionId, { createdAt: Date.now() });
+				upsertSession(repoRoot, sessionId, { createdAt: Date.now() });
 				return;
 			}
 
 			if (event.type === "session.deleted") {
 				const sessionId = event.properties?.info?.id;
 				if (typeof sessionId !== "string") return;
-				const state = getSession(directory, sessionId);
+				const state = getSession(repoRoot, sessionId);
 				if (!state?.branch || !state.worktreePath) return;
 
-				try {
-					if (hasChanges(state.worktreePath)) {
-						run("git add -A", state.worktreePath);
-						run(
-							`git commit -m "chore(opencode): session snapshot"`,
-							state.worktreePath,
-						);
-						run(`git push -u origin "${state.branch}"`, state.worktreePath);
-					}
+				const result = cleanupWorktree(
+					repoRoot,
+					state.worktreePath,
+					state.branch,
+				);
 
-					// remove worktree from main repo
-					run(`git worktree remove "${state.worktreePath}" --force`, directory);
-
+				if (result.success) {
 					client.tui.showToast({
 						body: {
 							title: "Session Saved",
@@ -207,32 +43,34 @@ export const GitWorktreeSessionPlugin: Plugin = async ({
 							variant: "success",
 						},
 					});
-				} catch (err) {
+				} else {
 					client.tui.showToast({
 						body: {
 							title: "Cleanup Failed",
-							message: String(err),
+							message: result.error || "Unknown error",
 							variant: "error",
 						},
 					});
-				} finally {
-					deleteSession(directory, sessionId);
 				}
+
+				deleteSession(repoRoot, sessionId);
 			}
 		},
 
-		/**
-		 * System prompt assembly
-		 * This is the cleanest place to inject global rules
-		 */
 		"experimental.chat.system.transform": async (_input, output) => {
-			if (!isGitRepo(directory)) return;
-			if (worktree.includes("worktrees")) return;
-			const text =
-				"IMPORTANT: A 'createworktree' tool is available for creating isolated git worktrees. When the user mentions creating a branch or wants to start a new feature, proactively suggest or use this tool. Ask for a branch name if not provided.";
+			if (!isGitRepo(repoRoot)) return;
 
-			output.system.push(text);
+			if (worktree.includes("worktrees")) {
+				const text =
+					"IMPORTANT: After completing a task, inform the user that they can delete this worktree session using the 'deleteworktree' tool. The tool will commit any changes, push to remote, and clean up the worktree. Example: 'Task complete! You can now delete this worktree session with the deleteworktree tool if you're done.'";
+				output.system.push(text);
+			} else {
+				const text =
+					"IMPORTANT: A 'createworktree' tool is available for creating isolated git worktrees. When the user mentions creating a branch or wants to start a new feature, proactively suggest or use this tool. Ask for a branch name if not provided.";
+				output.system.push(text);
+			}
 		},
+
 		tool: {
 			createworktree: tool({
 				description:
@@ -243,27 +81,16 @@ export const GitWorktreeSessionPlugin: Plugin = async ({
 						.describe("The branch name for the worktree"),
 				},
 				async execute({ branch }, context) {
-					if (!isGitRepo(directory)) return "Not a git repo";
+					const result = createWorktreeSession(repoRoot, branch);
 
-					const baseBranch = currentBranch(directory);
-					if (!baseBranch) return "detached";
+					if (!result.success || !result.worktreePath) {
+						return result.error || "Failed to create worktree";
+					}
 
-					if (branchExistsLocal(branch, directory))
-						return "Local branch exists";
-					if (branchExistsRemote(branch, directory)) return "Remote exists";
-
-					const worktreesRoot = join(directory, ".opencode", "worktrees");
-					const worktreePath = join(worktreesRoot, branch);
-
-					if (!existsSync(worktreesRoot))
-						mkdirSync(worktreesRoot, { recursive: true });
-
-					run(
-						`git worktree add "${worktreePath}" -b "${branch}" "${baseBranch}"`,
-						directory,
-					);
-
-					upsertSession(directory, context.sessionID, { branch, worktreePath });
+					upsertSession(repoRoot, context.sessionID, {
+						branch,
+						worktreePath: result.worktreePath,
+					});
 
 					client.tui.showToast({
 						body: {
@@ -273,9 +100,54 @@ export const GitWorktreeSessionPlugin: Plugin = async ({
 						},
 					});
 
-					openOpencodeInDefaultTerminal(worktreePath, context.sessionID);
+					openOpencodeInDefaultTerminal(result.worktreePath, context.sessionID);
 
-					return `Created worktree ${worktreePath} for branch ${branch}. A new opencode instance is opening there now.`;
+					return `Created worktree ${result.worktreePath} for branch ${branch}. A new opencode instance is opening there now.`;
+				},
+			}),
+
+			deleteworktree: tool({
+				description:
+					"Deletes the current worktree session. Commits any changes, pushes to remote, and removes the worktree.",
+				args: {},
+				async execute(_args, context) {
+					if (!isGitRepo(repoRoot)) return "Not a git repo";
+					if (!worktree.includes("worktrees"))
+						return "Not in a worktree session";
+
+					const sessionId = context.sessionID;
+					const state = getSession(repoRoot, sessionId);
+
+					if (!state?.branch || !state.worktreePath) {
+						return "No worktree session found for this session ID";
+					}
+
+					const result = cleanupWorktree(
+						repoRoot,
+						state.worktreePath,
+						state.branch,
+					);
+
+					if (result.success) {
+						deleteSession(repoRoot, sessionId);
+						client.tui.showToast({
+							body: {
+								title: "Worktree Deleted",
+								message: `Committed & cleaned ${state.branch}`,
+								variant: "success",
+							},
+						});
+						return `Worktree ${state.branch} has been cleaned up. Changes committed and pushed to remote. You can now close this session.`;
+					}
+
+					client.tui.showToast({
+						body: {
+							title: "Deletion Failed",
+							message: result.error || "Unknown error",
+							variant: "error",
+						},
+					});
+					return `Failed to delete worktree: ${result.error}`;
 				},
 			}),
 		},
