@@ -1,60 +1,66 @@
 import { execSync, spawn } from "node:child_process";
-import {
-	existsSync,
-	mkdirSync,
-	readFileSync,
-	writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { type Plugin, tool } from "@opencode-ai/plugin";
 
 type SessionState = {
-    sessionId: string;
-    branch?: string;
-    worktreePath?: string;
-    createdAt: number;
+	sessionId: string;
+	branch?: string;
+	worktreePath?: string;
+	createdAt: number;
 };
 
 type StateFile = {
-    sessions: Record<string, SessionState>;
+	sessions: Record<string, SessionState>;
 };
 
-const STATE_FILE = join(process.cwd(), ".opencode", "worktree-session-state.json");
-
-function readStateFile(): StateFile {
-    try {
-        if (existsSync(STATE_FILE)) {
-            return JSON.parse(readFileSync(STATE_FILE, "utf-8"));
-        }
-    } catch {}
-    return { sessions: {} };
+function getStateFilePath(repoRoot: string): string {
+	return join(repoRoot, ".opencode", "worktree-session-state.json");
 }
 
-function writeStateFile(state: StateFile) {
-    const dir = join(process.cwd(), ".opencode");
-    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-    writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+function readStateFile(repoRoot: string): StateFile {
+	try {
+		const stateFile = getStateFilePath(repoRoot);
+		if (existsSync(stateFile)) {
+			return JSON.parse(readFileSync(stateFile, "utf-8"));
+		}
+	} catch {}
+	return { sessions: {} };
 }
 
-function upsertSession(sessionId: string, patch: Partial<SessionState>) {
-    const state = readStateFile();
-    const prev = state.sessions[sessionId] ?? {
-        sessionId,
-        createdAt: Date.now(),
-    };
-    state.sessions[sessionId] = { ...prev, ...patch, sessionId };
-    writeStateFile(state);
+function writeStateFile(repoRoot: string, state: StateFile) {
+	const dir = join(repoRoot, ".opencode");
+	if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+	const stateFile = getStateFilePath(repoRoot);
+	writeFileSync(stateFile, JSON.stringify(state, null, 2));
 }
 
-function getSession(sessionId: string): SessionState | undefined {
-    const state = readStateFile();
-    return state.sessions[sessionId];
+function upsertSession(
+	repoRoot: string,
+	sessionId: string,
+	patch: Partial<SessionState>,
+) {
+	const state = readStateFile(repoRoot);
+	const prev = state.sessions[sessionId] ?? {
+		sessionId,
+		createdAt: Date.now(),
+	};
+	state.sessions[sessionId] = { ...prev, ...patch, sessionId };
+	writeStateFile(repoRoot, state);
 }
 
-function deleteSession(sessionId: string) {
-    const state = readStateFile();
-    delete state.sessions[sessionId];
-    writeStateFile(state);
+function getSession(
+	repoRoot: string,
+	sessionId: string,
+): SessionState | undefined {
+	const state = readStateFile(repoRoot);
+	return state.sessions[sessionId];
+}
+
+function deleteSession(repoRoot: string, sessionId: string) {
+	const state = readStateFile(repoRoot);
+	delete state.sessions[sessionId];
+	writeStateFile(repoRoot, state);
 }
 
 function run(cmd: string, cwd?: string): string {
@@ -101,8 +107,11 @@ function branchExistsRemote(branch: string, cwd: string): boolean {
 	}
 }
 
-function openOpencodeInDefaultTerminal(worktreePath: string, sessionId: string) {
-    const platform = process.platform;
+function openOpencodeInDefaultTerminal(
+	worktreePath: string,
+	sessionId: string,
+) {
+	const platform = process.platform;
 
 	if (platform === "darwin") {
 		const child = spawn(
@@ -117,68 +126,78 @@ function openOpencodeInDefaultTerminal(worktreePath: string, sessionId: string) 
 		return;
 	}
 
-    if (platform === "win32") {
-        spawn(
-            "cmd",
-            ["/c", "start", "cmd", "/k", `cd /d "${worktreePath}" && opencode --session ${sessionId}`],
-            { detached: true, stdio: "ignore" }
-        ).unref();
-        return;
-    }
+	if (platform === "win32") {
+		spawn(
+			"cmd",
+			[
+				"/c",
+				"start",
+				"cmd",
+				"/k",
+				`cd /d "${worktreePath}" && opencode --session ${sessionId}`,
+			],
+			{ detached: true, stdio: "ignore" },
+		).unref();
+		return;
+	}
 
-    // Linux / BSD
-    spawn(
-        "xdg-terminal-exec",
-        ["bash", "-lc", `cd '${worktreePath}' && opencode --session ${sessionId}`],
-        { detached: true, stdio: "ignore" }
-    ).unref();
+	// Linux / BSD
+	spawn(
+		"xdg-terminal-exec",
+		["bash", "-lc", `cd '${worktreePath}' && opencode --session ${sessionId}`],
+		{ detached: true, stdio: "ignore" },
+	).unref();
 }
 
 export const GitWorktreeSessionPlugin: Plugin = async ({
 	client,
 	worktree,
-    directory,
+	directory,
 }) => {
 	return {
 		event: async ({ event }) => {
-            // write all events to file
-            const allEventsFile = join(process.cwd(), ".opencode", "worktree-event-log-2.json");
-            let allEvents: any[] = [];
-            try {
-                if (existsSync(allEventsFile)) {
-                    allEvents = JSON.parse(readFileSync(allEventsFile, "utf-8"));
-                }
-            } catch {}
-            allEvents.push({ timestamp: Date.now(), event });
-            writeFileSync(
-                allEventsFile,
-                JSON.stringify(allEvents, null, 2),
-            );
+			// write all events to file
+			const allEventsFile = join(
+				directory,
+				".opencode",
+				"worktree-event-log-2.json",
+			);
+			let allEvents: any[] = [];
+			try {
+				if (existsSync(allEventsFile)) {
+					allEvents = JSON.parse(readFileSync(allEventsFile, "utf-8"));
+				}
+			} catch {}
+			allEvents.push({ timestamp: Date.now(), event });
+			writeFileSync(allEventsFile, JSON.stringify(allEvents, null, 2));
 
-            if (event.type === "session.created") {
-                // first check if we are in a gittree
-                if (!isGitRepo(directory)) return;
-                if (worktree.includes("worktrees")) return;
+			if (event.type === "session.created") {
+				// first check if we are in a gittree
+				if (!isGitRepo(directory)) return;
+				if (worktree.includes("worktrees")) return;
 
-                const sessionId = event.properties?.info?.id;
-                upsertSession(sessionId, { createdAt: Date.now() });
-                return;
-            }
+				const sessionId = event.properties?.info?.id;
+				upsertSession(directory, sessionId, { createdAt: Date.now() });
+				return;
+			}
 
 			if (event.type === "session.deleted") {
-                const sessionId = event.properties?.info?.id;
-                if (typeof sessionId !== "string") return;
-				const state = getSession(sessionId);
+				const sessionId = event.properties?.info?.id;
+				if (typeof sessionId !== "string") return;
+				const state = getSession(directory, sessionId);
 				if (!state?.branch || !state.worktreePath) return;
 
 				try {
 					if (hasChanges(state.worktreePath)) {
 						run("git add -A", state.worktreePath);
-						run(`git commit -m "chore(opencode): session snapshot"`, state.worktreePath);
+						run(
+							`git commit -m "chore(opencode): session snapshot"`,
+							state.worktreePath,
+						);
 						run(`git push -u origin "${state.branch}"`, state.worktreePath);
 					}
 
-                    // remove worktree from main repo
+					// remove worktree from main repo
 					run(`git worktree remove "${state.worktreePath}" --force`, directory);
 
 					client.tui.showToast({
@@ -197,7 +216,7 @@ export const GitWorktreeSessionPlugin: Plugin = async ({
 						},
 					});
 				} finally {
-					deleteSession(sessionId);
+					deleteSession(directory, sessionId);
 				}
 			}
 		},
@@ -229,7 +248,8 @@ export const GitWorktreeSessionPlugin: Plugin = async ({
 					const baseBranch = currentBranch(directory);
 					if (!baseBranch) return "detached";
 
-					if (branchExistsLocal(branch, directory)) return "Local branch exists";
+					if (branchExistsLocal(branch, directory))
+						return "Local branch exists";
 					if (branchExistsRemote(branch, directory)) return "Remote exists";
 
 					const worktreesRoot = join(directory, ".opencode", "worktrees");
@@ -243,7 +263,7 @@ export const GitWorktreeSessionPlugin: Plugin = async ({
 						directory,
 					);
 
-					upsertSession(context.sessionID, { branch, worktreePath });
+					upsertSession(directory, context.sessionID, { branch, worktreePath });
 
 					client.tui.showToast({
 						body: {
@@ -253,7 +273,7 @@ export const GitWorktreeSessionPlugin: Plugin = async ({
 						},
 					});
 
-                    openOpencodeInDefaultTerminal(worktreePath, context.sessionID);
+					openOpencodeInDefaultTerminal(worktreePath, context.sessionID);
 
 					return `Created worktree ${worktreePath} for branch ${branch}. A new opencode instance is opening there now.`;
 				},
