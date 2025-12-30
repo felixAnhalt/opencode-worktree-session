@@ -16,6 +16,75 @@ export const GitWorktreeSessionPlugin: Plugin = async ({ client, worktree, direc
         return;
       }
 
+      if (event.type === 'session.idle') {
+        const sessionId = event.properties?.sessionID;
+        if (typeof sessionId !== 'string') return;
+
+        const state = getSession(directory, sessionId);
+        if (!state?.pendingWorktreeSpawn) return;
+
+        const { worktreePath, branch, sessionID } = state.pendingWorktreeSpawn;
+
+        // Clear the pending flag first
+        upsertSession(directory, sessionId, { pendingWorktreeSpawn: undefined });
+
+        // Spawn the terminal with the session ID
+        openOpencodeInDefaultTerminal(worktreePath, sessionID);
+
+        client.tui.showToast({
+          body: {
+            title: 'Opening Worktree',
+            message: `Launching terminal in ${branch}`,
+            variant: 'info',
+          },
+        });
+
+        // Create a fresh session in the master terminal
+        try {
+          await client.tui.executeCommand({
+            body: { command: 'session_new' },
+          });
+
+          client.tui.showToast({
+            body: {
+              title: 'Master Session Ready',
+              message: 'New session created, ready for next task',
+              variant: 'success',
+            },
+          });
+        } catch {
+          // If executeCommand fails, fall back to informing the user
+          client.tui.showToast({
+            body: {
+              title: 'Manual Action Required',
+              message: 'Press Ctrl+X N to create a new session',
+              variant: 'info',
+            },
+          });
+        }
+        return;
+      }
+
+      if (event.type === 'session.error') {
+        const sessionId = event.properties?.sessionID;
+        if (typeof sessionId !== 'string') return;
+
+        const state = getSession(directory, sessionId);
+        if (!state?.pendingWorktreeSpawn) return;
+
+        // Cancel the pending spawn on error/interruption
+        upsertSession(directory, sessionId, { pendingWorktreeSpawn: undefined });
+
+        client.tui.showToast({
+          body: {
+            title: 'Worktree Spawn Cancelled',
+            message: 'Response was interrupted',
+            variant: 'info',
+          },
+        });
+        return;
+      }
+
       if (event.type === 'session.deleted') {
         const sessionId = event.properties?.info?.id;
         if (typeof sessionId !== 'string') return;
@@ -62,7 +131,7 @@ export const GitWorktreeSessionPlugin: Plugin = async ({ client, worktree, direc
     tool: {
       createworktree: tool({
         description:
-          'Creates a git worktree for this session and automatically launches a new opencode instance in it.',
+          'Creates a git worktree for this session and automatically launches a new opencode instance in it. Starts new terminal session after tool execution and finished llm invocation.',
         args: {
           branch: tool.schema.string().describe('The branch name for the worktree'),
         },
@@ -76,44 +145,22 @@ export const GitWorktreeSessionPlugin: Plugin = async ({ client, worktree, direc
           upsertSession(directory, context.sessionID, {
             branch,
             worktreePath: result.worktreePath,
+            pendingWorktreeSpawn: {
+              worktreePath: result.worktreePath,
+              branch,
+              sessionID: context.sessionID,
+            },
           });
 
           client.tui.showToast({
             body: {
-              title: 'Launching Worktree',
-              message: `Opening opencode in ${branch}`,
-              variant: 'info',
+              title: 'Worktree Created',
+              message: `Branch ${branch} at ${result.worktreePath}`,
+              variant: 'success',
             },
           });
 
-          // Spawn new terminal with the current session ID
-          openOpencodeInDefaultTerminal(result.worktreePath, context.sessionID);
-
-          // Create a fresh session in the master terminal
-          try {
-            await client.tui.executeCommand({
-              body: { command: 'session_new' },
-            });
-
-            client.tui.showToast({
-              body: {
-                title: 'Master Session Ready',
-                message: 'New session created, ready for next task',
-                variant: 'success',
-              },
-            });
-          } catch {
-            // If executeCommand fails, fall back to informing the user
-            client.tui.showToast({
-              body: {
-                title: 'Manual Action Required',
-                message: 'Press Ctrl+X N to create a new session',
-                variant: 'info',
-              },
-            });
-          }
-
-          return `Created worktree ${result.worktreePath} for branch ${branch}. A new opencode instance is opening there now. This terminal has been reset with a fresh session.`;
+          return `Created worktree at ${result.worktreePath} for branch ${branch}. Terminal will open when this response completes...`;
         },
       }),
       deleteworktree: tool({

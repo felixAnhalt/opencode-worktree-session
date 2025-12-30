@@ -3,6 +3,11 @@ export type SessionState = {
   branch?: string;
   worktreePath?: string;
   createdAt: number;
+  pendingWorktreeSpawn?: {
+    worktreePath: string;
+    branch: string;
+    sessionID: string;
+  };
 };
 
 export type StateFile = {
