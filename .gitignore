@@ -11,4 +11,4 @@ coverage/
 .bun.lockb
 .memory/
 .idea
-.opencode
+.opencode/worktrees

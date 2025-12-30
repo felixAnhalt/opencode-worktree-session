@@ -80,15 +80,40 @@ export const GitWorktreeSessionPlugin: Plugin = async ({ client, worktree, direc
 
           client.tui.showToast({
             body: {
-              title: 'Launching Session',
-              message: `Opening opencode in ${branch} with session ${context.sessionID}`,
+              title: 'Launching Worktree',
+              message: `Opening opencode in ${branch}`,
               variant: 'info',
             },
           });
 
+          // Spawn new terminal with the current session ID
           openOpencodeInDefaultTerminal(result.worktreePath, context.sessionID);
 
-          return `Created worktree ${result.worktreePath} for branch ${branch}. A new opencode instance is opening there now.`;
+          // Create a fresh session in the master terminal
+          try {
+            await client.tui.executeCommand({
+              body: { command: 'session_new' },
+            });
+
+            client.tui.showToast({
+              body: {
+                title: 'Master Session Ready',
+                message: 'New session created, ready for next task',
+                variant: 'success',
+              },
+            });
+          } catch {
+            // If executeCommand fails, fall back to informing the user
+            client.tui.showToast({
+              body: {
+                title: 'Manual Action Required',
+                message: 'Press Ctrl+X N to create a new session',
+                variant: 'info',
+              },
+            });
+          }
+
+          return `Created worktree ${result.worktreePath} for branch ${branch}. A new opencode instance is opening there now. This terminal has been reset with a fresh session.`;
         },
       }),
       deleteworktree: tool({
