@@ -1,17 +1,13 @@
 {
-	"include": [".opencode/**/*.ts"],
-	"exclude": ["node_modules"],
-	"compilerOptions": {
-		"lib": ["ESNext"],
-		"target": "ESNext",
-		"module": "Preserve",
-		"moduleResolution": "bundler",
-		"allowImportingTsExtensions": true,
-		"verbatimModuleSyntax": true,
-		"noEmit": true,
-		"strict": true,
-		"skipLibCheck": true,
-		"noFallthroughCasesInSwitch": true,
-		"esModuleInterop": true
-	}
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM"],
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "types": ["bun-types"]
+  }
 }
