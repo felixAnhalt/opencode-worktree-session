@@ -56,23 +56,11 @@ describe('terminal service', () => {
 
       // Verify Alacritty launch with correct command
       expect(spawn).toHaveBeenCalledWith(
-        'open',
-        expect.arrayContaining([
-          '-a',
-          'Alacritty',
-          '--args',
-          '-e',
-          'zsh',
-          '-lc',
-          expect.stringContaining('cd'),
-        ]),
+        '/Applications/Alacritty.app/Contents/MacOS/alacritty',
+        ['--working-directory', mockWorktreePath, '-e', 'opencode', '--session', mockSessionId],
         expect.objectContaining({
           detached: true,
           stdio: 'ignore',
-          env: expect.objectContaining({
-            WORKTREE: mockWorktreePath,
-            SESSION: mockSessionId,
-          }),
         })
       );
 

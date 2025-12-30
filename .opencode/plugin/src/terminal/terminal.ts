@@ -55,11 +55,15 @@ end run
 };
 
 const runInAlacritty: MacOsTerminalRunner = (worktreePath: string, sessionId: string) => {
-  const command = 'cd "$WORKTREE" && opencode --session "$SESSION"';
-
-  spawnDetached('open', ['-a', 'Alacritty', '--args', '-e', 'zsh', '-lc', command], {
-    env: { ...process.env, WORKTREE: worktreePath, SESSION: sessionId },
-  });
+  // Use direct binary path instead of 'open -a' for more reliable argument passing
+  spawnDetached('/Applications/Alacritty.app/Contents/MacOS/alacritty', [
+    '--working-directory',
+    worktreePath,
+    '-e',
+    'opencode',
+    '--session',
+    sessionId,
+  ]);
 };
 
 const openOnMacOS = (worktreePath: string, sessionId: string) => {
