@@ -119,7 +119,7 @@ export const GitWorktreeSessionPlugin: Plugin = async ({ client, worktree, direc
 
       if (worktree.includes('worktrees')) {
         const text =
-          "IMPORTANT: After completing a task, inform the user that they can delete this worktree session using the 'deleteworktree' tool. The tool will commit any changes, push to remote, and clean up the worktree. Example: 'Task complete! You can now delete this worktree session with the deleteworktree tool if you're done.'";
+          "WORKTREE SESSION RULES (STRICT):\n1) When finished, tell the user they can run the 'deleteworktree' tool.\n2) If 'deleteworktree' is executed: STOP. Do not run ANY shell commands (no git/pwd/ls/cat), do not list/read files, and do not call any other tools afterward. The worktree directory may no longer exist and process.cwd() can be invalid.\n3) If verification is needed, ASK the user to run verification commands from the repository root (outside the deleted worktree) and paste the output.";
         output.system.push(text);
       } else {
         const text =
@@ -189,7 +189,7 @@ export const GitWorktreeSessionPlugin: Plugin = async ({ client, worktree, direc
                 variant: 'success',
               },
             });
-            return `Worktree ${state.branch} has been cleaned up. Changes committed and pushed to remote. You can now close this session.`;
+            return `Worktree ${state.branch} cleaned up (committed + pushed + removed). STOP: do not run any further shell commands or access files; the deleted worktree path may be invalid.`;
           }
 
           client.tui.showToast({
