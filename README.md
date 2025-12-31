@@ -1,6 +1,6 @@
 # opencode-worktree-session
 
-A plugin for [OpenCode](https://opencode.ai) that automatically manages Git worktrees for every AI session. It was not built by the OpenCode team and is not affiliated with them in any way.
+A plugin for [OpenCode](https://opencode.ai) that automatically manages Git worktrees for every AI session created from the [opencode-plugin-template](https://github.com/zenobi-us/opencode-plugin-template).
 
 This plugin ensures your main working directory remains clean while the AI works in an isolated branch. On session end, it automatically generates a commit message, pushes the branch, and removes the worktree.
 
@@ -12,6 +12,24 @@ This plugin ensures your main working directory remains clean while the AI works
 - **Automated Cleanup:** Commits changes using AI-generated messages and deletes the worktree upon exit.
 
 ## Installation
+
+### NPM
+
+Add to your `opencode.json`:
+
+```json
+{
+  "plugin": ["@tmegit/opencode-worktree-session"]
+}
+```
+
+Then run:
+
+```bash
+npm install @tmegit/opencode-worktree-session
+```
+
+### Manual
 
 1. Create a directory for the plugin in your OpenCode project:
    ```bash
@@ -32,13 +50,19 @@ This plugin ensures your main working directory remains clean while the AI works
 * Pushes to `origin`.
 * Removes the worktree safely.
 
-
-
 ## Requirements
 
 * Node.js runtime
 * Git installed and configured in PATH
 * OpenCode CLI
+
+## Development
+
+- `bun run typecheck` - TypeScript type checking
+- `bun run lint` - Fix linting issues
+- `bun run format` - Format code with Prettier
+- `bun run test` - Run tests
+- `bun run build` - Build the plugin
 
 ## License
 

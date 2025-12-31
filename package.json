@@ -1,0 +1,62 @@
+{
+  "name": "@tmegit/opencode-worktree-session",
+  "version": "0.1.0",
+  "description": "OpenCode plugin that manages Git worktrees for AI sessions",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "mise run lint --fix",
+    "format": "mise run format --fix",
+    "test": "mise run test",
+    "build": "mise run build"
+  },
+  "keywords": [
+    "opencode",
+    "plugin",
+    "git",
+    "worktree",
+    "session"
+  ],
+  "author": {
+    "name": "Felix Anhalt"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/felixAnhalt/opencode-worktree-session.git"
+  },
+  "homepage": "https://github.com/felixAnhalt/opencode-worktree-session#readme",
+  "bugs": {
+    "url": "https://github.com/felixAnhalt/opencode-worktree-session/issues"
+  },
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/opencode-worktree-session.d.ts",
+      "default": "./dist/opencode-worktree-session.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "files": [
+    "dist",
+    ".opencode/plugin/src/version.ts"
+  ],
+  "dependencies": {
+    "@opencode-ai/plugin": "1.0.207"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.2",
+    "@types/node": "22.19.3",
+    "@typescript-eslint/eslint-plugin": "8.47.0",
+    "@typescript-eslint/parser": "8.47.0",
+    "bun-types": "latest",
+    "eslint": "9.39.2",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-prettier": "5.5.4",
+    "prettier": "3.7.4",
+    "typescript-eslint": "8.51.0",
+    "vitest": "3.2.4"
+  }
+}
