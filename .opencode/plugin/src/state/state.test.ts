@@ -218,6 +218,58 @@ describe('state service', () => {
 
       expect(readFileSync).toHaveBeenCalledWith(stateFilePath, 'utf-8');
     });
+
+    it('should find session by worktreePath when session ID does not match', () => {
+      const worktreePath = '/test/repo/.opencode/worktrees/feat/test-1';
+      const session: SessionState = {
+        sessionId: 'original-session-id',
+        branch: 'feat/test-1',
+        worktreePath,
+        createdAt: 1000,
+      };
+
+      const state: StateFile = {
+        sessions: { 'original-session-id': session },
+      };
+
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify(state));
+
+      // Looking for different session ID, but same worktreePath
+      const result = getSession(worktreePath, 'different-session-id');
+
+      expect(result).toEqual(session);
+    });
+
+    it('should prefer session ID match over worktreePath match', () => {
+      const worktreePath = '/test/repo/.opencode/worktrees/feat/test-1';
+      const sessionById: SessionState = {
+        sessionId: 'correct-id',
+        branch: 'feat/test-1',
+        worktreePath: '/some/other/path',
+        createdAt: 1000,
+      };
+      const sessionByPath: SessionState = {
+        sessionId: 'other-id',
+        branch: 'feat/test-1',
+        worktreePath,
+        createdAt: 2000,
+      };
+
+      const state: StateFile = {
+        sessions: {
+          'correct-id': sessionById,
+          'other-id': sessionByPath,
+        },
+      };
+
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify(state));
+
+      const result = getSession(worktreePath, 'correct-id');
+
+      expect(result).toEqual(sessionById);
+    });
   });
 
   describe('deleteSession', () => {
@@ -272,6 +324,65 @@ describe('state service', () => {
         deleteSession(mockRepoRoot, 'session-123');
       }).not.toThrow();
     });
+
+    it('should delete session by worktreePath when session ID does not match', () => {
+      const worktreePath = '/test/repo/.opencode/worktrees/feat/test-1';
+      const state: StateFile = {
+        sessions: {
+          'original-session-id': {
+            sessionId: 'original-session-id',
+            branch: 'feat/test-1',
+            worktreePath,
+            createdAt: 1000,
+          },
+          'other-session': {
+            sessionId: 'other-session',
+            branch: 'feat/test-2',
+            worktreePath: '/other/path',
+            createdAt: 2000,
+          },
+        },
+      };
+
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify(state));
+
+      // Delete with different session ID but matching worktreePath
+      deleteSession(worktreePath, 'different-session-id');
+
+      const writtenData = JSON.parse(vi.mocked(writeFileSync).mock.calls[0]?.[1] as string);
+      expect(writtenData.sessions).not.toHaveProperty('original-session-id');
+      expect(writtenData.sessions).toHaveProperty('other-session');
+    });
+
+    it('should prefer session ID match over worktreePath match when deleting', () => {
+      const worktreePath = '/test/repo/.opencode/worktrees/feat/test-1';
+      const state: StateFile = {
+        sessions: {
+          'correct-id': {
+            sessionId: 'correct-id',
+            branch: 'feat/test-1',
+            worktreePath: '/some/other/path',
+            createdAt: 1000,
+          },
+          'other-id': {
+            sessionId: 'other-id',
+            branch: 'feat/test-1',
+            worktreePath,
+            createdAt: 2000,
+          },
+        },
+      };
+
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify(state));
+
+      deleteSession(worktreePath, 'correct-id');
+
+      const writtenData = JSON.parse(vi.mocked(writeFileSync).mock.calls[0]?.[1] as string);
+      expect(writtenData.sessions).not.toHaveProperty('correct-id');
+      expect(writtenData.sessions).toHaveProperty('other-id');
+    });
   });
 
   describe('state file path resolution', () => {
@@ -296,6 +407,107 @@ describe('state service', () => {
         join(customRoot, '.opencode', 'worktree-session-state.json'),
         expect.any(String)
       );
+    });
+
+    it('should resolve main repo from worktree path', () => {
+      const worktreePath = '/test/repo/.opencode/worktrees/feature-branch';
+      const mainRepoRoot = '/test/repo';
+      vi.mocked(existsSync).mockReturnValue(false);
+
+      upsertSession(worktreePath, 'session-123', { branch: 'feature-branch' });
+
+      expect(writeFileSync).toHaveBeenCalledWith(
+        join(mainRepoRoot, '.opencode', 'worktree-session-state.json'),
+        expect.any(String)
+      );
+    });
+
+    it('should resolve main repo from nested worktree path', () => {
+      const worktreePath = '/test/repo/.opencode/worktrees/feat/nested/branch';
+      const mainRepoRoot = '/test/repo';
+      vi.mocked(existsSync).mockReturnValue(false);
+
+      upsertSession(worktreePath, 'session-123', { branch: 'feat/nested/branch' });
+
+      expect(writeFileSync).toHaveBeenCalledWith(
+        join(mainRepoRoot, '.opencode', 'worktree-session-state.json'),
+        expect.any(String)
+      );
+    });
+
+    it('should getSession from main repo when called from worktree', () => {
+      const worktreePath = '/test/repo/.opencode/worktrees/feature-branch';
+      const mainRepoRoot = '/test/repo';
+      const session: SessionState = {
+        sessionId: 'session-123',
+        branch: 'feature-branch',
+        worktreePath,
+        createdAt: 1000,
+      };
+
+      const state: StateFile = {
+        sessions: { 'session-123': session },
+      };
+
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify(state));
+
+      const result = getSession(worktreePath, 'session-123');
+
+      expect(readFileSync).toHaveBeenCalledWith(
+        join(mainRepoRoot, '.opencode', 'worktree-session-state.json'),
+        'utf-8'
+      );
+      expect(result).toEqual(session);
+    });
+
+    it('should getSession from main repo when called from worktree with doubly nested feature branch', () => {
+      const worktreePath = '/test/repo/.opencode/worktrees/feature/branch';
+      const mainRepoRoot = '/test/repo';
+      const session: SessionState = {
+        sessionId: 'session-123',
+        branch: 'feature/branch',
+        worktreePath,
+        createdAt: 1000,
+      };
+
+      const state: StateFile = {
+        sessions: { 'session-123': session },
+      };
+
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify(state));
+
+      const result = getSession(worktreePath, 'session-123');
+
+      expect(readFileSync).toHaveBeenCalledWith(
+        join(mainRepoRoot, '.opencode', 'worktree-session-state.json'),
+        'utf-8'
+      );
+      expect(result).toEqual(session);
+    });
+
+    it('should deleteSession from main repo when called from worktree', () => {
+      const worktreePath = '/test/repo/.opencode/worktrees/feature-branch';
+      const mainRepoRoot = '/test/repo';
+      const state: StateFile = {
+        sessions: {
+          'session-123': { sessionId: 'session-123', createdAt: 1000 },
+        },
+      };
+
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify(state));
+
+      deleteSession(worktreePath, 'session-123');
+
+      expect(writeFileSync).toHaveBeenCalledWith(
+        join(mainRepoRoot, '.opencode', 'worktree-session-state.json'),
+        expect.any(String)
+      );
+
+      const writtenData = JSON.parse(vi.mocked(writeFileSync).mock.calls[0]?.[1] as string);
+      expect(writtenData.sessions).not.toHaveProperty('session-123');
     });
   });
 });

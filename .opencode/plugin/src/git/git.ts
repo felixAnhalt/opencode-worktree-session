@@ -57,3 +57,13 @@ export const createWorktree = (
 ) => {
   run(`git worktree add "${worktreePath}" -b "${branch}" "${baseBranch}"`, directory);
 };
+
+export const getMainRepoFromWorktree = (directory: string): string | null => {
+  // Check if directory path contains '/.opencode/worktrees/'
+  if (directory.includes('/.opencode/worktrees/')) {
+    // Extract main repo by going up to before .opencode
+    const parts = directory.split('/.opencode/worktrees/');
+    return parts[0];
+  }
+  return null;
+};
