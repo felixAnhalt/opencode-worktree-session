@@ -8,6 +8,11 @@ export type SessionState = {
     branch: string;
     sessionID: string;
   };
+  pendingWorktreeDeletion?: {
+    worktreePath: string;
+    branch: string;
+    sessionID: string;
+  };
 };
 
 export type StateFile = {

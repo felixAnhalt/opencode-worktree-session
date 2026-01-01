@@ -49,6 +49,10 @@ export const removeWorktree = (worktreePath: string, directory: string) => {
   run(`git worktree remove "${worktreePath}" --force`, directory);
 };
 
+export const pruneWorktrees = (directory: string) => {
+  run('git worktree prune', directory);
+};
+
 export const createWorktree = (
   worktreePath: string,
   branch: string,
