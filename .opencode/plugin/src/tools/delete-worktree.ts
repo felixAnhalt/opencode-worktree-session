@@ -1,8 +1,7 @@
 import { tool } from '@opencode-ai/plugin';
 import type { PluginClient } from '../types.ts';
 import { getMainRepoFromWorktree, isGitRepo } from '../git/git.ts';
-import { cleanupWorktree } from '../git/worktree.ts';
-import { deleteSession, getSession } from '../state/state.ts';
+import { getSession, upsertSession } from '../state/state.ts';
 
 export const deleteWorktreeTool = (directory: string, worktree: string, client: PluginClient) =>
   tool({
@@ -48,34 +47,23 @@ export const deleteWorktreeTool = (directory: string, worktree: string, client: 
         ].join('\n');
       }
 
-      const result = cleanupWorktree(directory, state.worktreePath, state.branch);
-
-      if (result.success) {
-        deleteSession(directory, sessionId);
-        client.tui.showToast({
-          body: {
-            title: 'Worktree Deleted',
-            message: `Committed & cleaned ${state.branch}`,
-            variant: 'success',
-          },
-        });
-        return `Worktree ${state.branch} cleaned up (committed + pushed + removed). STOP: do not run any further shell commands or access files; the deleted worktree path may be invalid.`;
-      }
-
-      client.tui.showToast({
-        body: {
-          title: 'Deletion Failed',
-          message: result.error || 'Unknown error',
-          variant: 'error',
+      // Set pending deletion flag instead of deleting immediately
+      upsertSession(directory, sessionId, {
+        pendingWorktreeDeletion: {
+          worktreePath: state.worktreePath,
+          branch: state.branch,
+          sessionID: sessionId,
         },
       });
 
-      return [
-        `Error: Failed to delete worktree`,
-        `Reason: ${result.error}`,
-        '',
-        'Debug Information:',
-        JSON.stringify(debugInfo, null, 2),
-      ].join('\n');
+      client.tui.showToast({
+        body: {
+          title: 'Worktree Deletion Scheduled',
+          message: `Will clean up ${state.branch} after response completes`,
+          variant: 'info',
+        },
+      });
+
+      return `Worktree deletion scheduled for ${state.branch}. Cleanup will happen after this response completes. STOP: do not run any further shell commands or access files after this response.`;
     },
   });
