@@ -20,8 +20,6 @@ export const GitWorktreeSessionPlugin: Plugin = async ({ client, worktree, direc
         try {
           await handleSessionIdle(event, directory, worktree, client);
         } catch (err) {
-          // eslint-disable-next-line no-console
-          console.error('[worktree-plugin] session.idle handler error:', err);
           client.tui.showToast({
             body: {
               title: 'Session Idle Error',
