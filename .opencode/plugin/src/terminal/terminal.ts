@@ -1,4 +1,5 @@
 import { spawn, spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 
 /* eslint-disable */
 type MacOsTerminalRunner = (_worktreePath: string, _sessionId: string) => void;
@@ -11,6 +12,70 @@ const spawnDetached = (cmd: string, args: string[], opts?: Parameters<typeof spa
 const isMacAppInstalled = (appName: string): boolean => {
   const res = spawnSync('open', ['-Ra', appName], { stdio: 'ignore' });
   return res.status === 0;
+};
+
+const resolveTerminalFromEnv = (): string | null => {
+  const opencodeTerminal = process.env.OPENCODE_TERMINAL;
+  const terminal = process.env.TERMINAL;
+
+  const candidate = opencodeTerminal || terminal;
+  if (!candidate) {
+    return null;
+  }
+
+  return candidate;
+};
+
+const isValidTerminalPath = (path: string): boolean => {
+  // Check if it's an absolute path that exists
+  if (path.startsWith('/')) {
+    return existsSync(path);
+  }
+  return false;
+};
+
+const tryLaunchCustomTerminal = (
+  terminal: string,
+  worktreePath: string,
+  sessionId: string
+): boolean => {
+  // Try as full path first
+  if (isValidTerminalPath(terminal)) {
+    try {
+      spawnDetached(terminal, [
+        '--working-directory',
+        worktreePath,
+        '-e',
+        'opencode',
+        '--session',
+        sessionId,
+      ]);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // Try as app name on macOS
+  if (process.platform === 'darwin') {
+    if (isMacAppInstalled(terminal)) {
+      const terminalLower = terminal.toLowerCase();
+      if (terminalLower === 'alacritty') {
+        runInAlacritty(worktreePath, sessionId);
+        return true;
+      }
+      if (terminalLower === 'iterm' || terminalLower === 'iterm2') {
+        runInITerm(worktreePath, sessionId);
+        return true;
+      }
+      if (terminalLower === 'terminal') {
+        runInAppleTerminal(worktreePath, sessionId);
+        return true;
+      }
+    }
+  }
+
+  return false;
 };
 
 const runInAppleTerminal: MacOsTerminalRunner = (worktreePath: string, sessionId: string) => {
@@ -105,6 +170,20 @@ const openOnLinux = (worktreePath: string, sessionId: string) => {
 };
 
 export const openOpencodeInDefaultTerminal = (worktreePath: string, sessionId: string) => {
+  // Try environment variable first
+  const envTerminal = resolveTerminalFromEnv();
+  if (envTerminal) {
+    const launched = tryLaunchCustomTerminal(envTerminal, worktreePath, sessionId);
+    if (launched) {
+      return;
+    }
+    // Log warning and fallback to auto-detection
+    console.log(
+      `Warning: Terminal '${envTerminal}' from environment variable not found or failed to launch. Falling back to auto-detection.`
+    );
+  }
+
+  // Fallback to platform-specific auto-detection
   const platform = process.platform;
 
   if (platform === 'darwin') {

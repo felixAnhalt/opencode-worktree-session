@@ -1,12 +1,17 @@
 import type { ChildProcess, SpawnSyncReturns } from 'node:child_process';
 import { spawn, spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NonSharedBuffer } from 'buffer';
 
-// Mock node:child_process before importing terminal module
+// Mock node:child_process and node:fs before importing terminal module
 vi.mock('node:child_process', () => ({
   spawn: vi.fn(),
   spawnSync: vi.fn(),
+}));
+
+vi.mock('node:fs', () => ({
+  existsSync: vi.fn(),
 }));
 
 const { openOpencodeInDefaultTerminal } = await import('./terminal.ts');
@@ -31,9 +36,123 @@ describe('terminal service', () => {
     vi.unstubAllEnvs();
   });
 
+  describe('environment variable terminal selection', () => {
+    beforeEach(() => {
+      Object.defineProperty(process, 'platform', { value: 'darwin', configurable: true });
+    });
+
+    it('should use OPENCODE_TERMINAL when set and valid', () => {
+      vi.stubEnv('OPENCODE_TERMINAL', 'Alacritty');
+      vi.mocked(spawnSync).mockReturnValue(
+        mockSpawnSync(0) as SpawnSyncReturns<string | NonSharedBuffer>
+      );
+
+      openOpencodeInDefaultTerminal(mockWorktreePath, mockSessionId);
+
+      expect(spawnSync).toHaveBeenCalledWith('open', ['-Ra', 'Alacritty'], expect.any(Object));
+      expect(spawn).toHaveBeenCalledWith(
+        '/Applications/Alacritty.app/Contents/MacOS/alacritty',
+        ['--working-directory', mockWorktreePath, '-e', 'opencode', '--session', mockSessionId],
+        expect.any(Object)
+      );
+    });
+
+    it('should use TERMINAL when OPENCODE_TERMINAL is not set', () => {
+      vi.stubEnv('TERMINAL', 'iTerm');
+      vi.mocked(spawnSync).mockReturnValue(
+        mockSpawnSync(0) as SpawnSyncReturns<string | NonSharedBuffer>
+      );
+
+      openOpencodeInDefaultTerminal(mockWorktreePath, mockSessionId);
+
+      expect(spawnSync).toHaveBeenCalledWith('open', ['-Ra', 'iTerm'], expect.any(Object));
+    });
+
+    it('should prioritize OPENCODE_TERMINAL over TERMINAL', () => {
+      vi.stubEnv('OPENCODE_TERMINAL', 'Alacritty');
+      vi.stubEnv('TERMINAL', 'iTerm');
+      vi.mocked(spawnSync).mockReturnValue(
+        mockSpawnSync(0) as SpawnSyncReturns<string | NonSharedBuffer>
+      );
+
+      openOpencodeInDefaultTerminal(mockWorktreePath, mockSessionId);
+
+      expect(spawnSync).toHaveBeenCalledWith('open', ['-Ra', 'Alacritty'], expect.any(Object));
+      expect(spawnSync).not.toHaveBeenCalledWith('open', ['-Ra', 'iTerm'], expect.any(Object));
+    });
+
+    it('should use full path when OPENCODE_TERMINAL is an absolute path', () => {
+      const customPath = '/usr/local/bin/alacritty';
+      vi.stubEnv('OPENCODE_TERMINAL', customPath);
+      vi.mocked(existsSync).mockReturnValue(true);
+
+      openOpencodeInDefaultTerminal(mockWorktreePath, mockSessionId);
+
+      expect(existsSync).toHaveBeenCalledWith(customPath);
+      expect(spawn).toHaveBeenCalledWith(
+        customPath,
+        ['--working-directory', mockWorktreePath, '-e', 'opencode', '--session', mockSessionId],
+        expect.any(Object)
+      );
+    });
+
+    it('should fallback to auto-detection when env terminal is not found', () => {
+      vi.stubEnv('OPENCODE_TERMINAL', 'NonExistentTerminal');
+      const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      // Mock NonExistentTerminal not found, then Alacritty found
+      vi.mocked(spawnSync)
+        .mockReturnValueOnce(mockSpawnSync(1) as SpawnSyncReturns<string | NonSharedBuffer>) // NonExistentTerminal
+        .mockReturnValueOnce(mockSpawnSync(0) as SpawnSyncReturns<string | NonSharedBuffer>); // Alacritty
+
+      openOpencodeInDefaultTerminal(mockWorktreePath, mockSessionId);
+
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Warning: Terminal 'NonExistentTerminal'")
+      );
+      expect(spawnSync).toHaveBeenCalledWith('open', ['-Ra', 'Alacritty'], expect.any(Object));
+
+      consoleLogSpy.mockRestore();
+    });
+
+    it('should fallback to auto-detection when env path does not exist', () => {
+      const customPath = '/nonexistent/path/terminal';
+      vi.stubEnv('OPENCODE_TERMINAL', customPath);
+      vi.mocked(existsSync).mockReturnValue(false);
+      const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      // Mock auto-detection finding Alacritty
+      vi.mocked(spawnSync).mockReturnValue(
+        mockSpawnSync(0) as SpawnSyncReturns<string | NonSharedBuffer>
+      );
+
+      openOpencodeInDefaultTerminal(mockWorktreePath, mockSessionId);
+
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        expect.stringContaining(`Warning: Terminal '${customPath}'`)
+      );
+      expect(spawnSync).toHaveBeenCalledWith('open', ['-Ra', 'Alacritty'], expect.any(Object));
+
+      consoleLogSpy.mockRestore();
+    });
+
+    it('should handle case-insensitive terminal names', () => {
+      vi.stubEnv('OPENCODE_TERMINAL', 'ALACRITTY');
+      vi.mocked(spawnSync).mockReturnValue(
+        mockSpawnSync(0) as SpawnSyncReturns<string | NonSharedBuffer>
+      );
+
+      openOpencodeInDefaultTerminal(mockWorktreePath, mockSessionId);
+
+      expect(spawnSync).toHaveBeenCalledWith('open', ['-Ra', 'ALACRITTY'], expect.any(Object));
+    });
+  });
+
   describe('macOS terminal detection and launching', () => {
     beforeEach(() => {
-      vi.stubEnv('TERM_PROGRAM', '');
+      vi.stubEnv('platform', 'darwin');
+      vi.stubEnv('OPENCODE_TERMINAL', '');
+      vi.stubEnv('TERMINAL', '');
     });
 
     it('should detect Alacritty when installed and launch it', () => {
@@ -159,6 +278,11 @@ describe('terminal service', () => {
   });
 
   describe('Windows terminal launching', () => {
+    beforeEach(() => {
+      vi.stubEnv('OPENCODE_TERMINAL', '');
+      vi.stubEnv('TERMINAL', '');
+    });
+
     it('should launch cmd on Windows', () => {
       Object.defineProperty(process, 'platform', { value: 'win32' });
 
@@ -184,6 +308,11 @@ describe('terminal service', () => {
   });
 
   describe('Linux terminal launching', () => {
+    beforeEach(() => {
+      vi.stubEnv('OPENCODE_TERMINAL', '');
+      vi.stubEnv('TERMINAL', '');
+    });
+
     it('should use xdg-terminal-exec on Linux', () => {
       Object.defineProperty(process, 'platform', { value: 'linux' });
 
@@ -203,6 +332,11 @@ describe('terminal service', () => {
   });
 
   describe('AppleScript generation', () => {
+    beforeEach(() => {
+      vi.stubEnv('OPENCODE_TERMINAL', '');
+      vi.stubEnv('TERMINAL', '');
+    });
+
     it('should properly quote paths with spaces in Terminal script', () => {
       Object.defineProperty(process, 'platform', { value: 'darwin' });
       vi.mocked(spawnSync).mockReturnValue(
