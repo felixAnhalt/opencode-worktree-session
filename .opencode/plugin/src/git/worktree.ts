@@ -4,6 +4,7 @@ import type { CleanupResult } from '../state/types.ts';
 import {
   branchExistsLocal,
   branchExistsRemote,
+  checkoutExistingBranch,
   commitAndPush,
   createWorktree as gitCreateWorktree,
   currentBranch,
@@ -43,13 +44,8 @@ export const createWorktreeSession = (
     return { success: false, error: 'Detached HEAD state' };
   }
 
-  if (branchExistsLocal(branch, directory)) {
-    return { success: false, error: 'Local branch exists' };
-  }
-
-  if (branchExistsRemote(branch, directory)) {
-    return { success: false, error: 'Remote branch exists' };
-  }
+  const localExists = branchExistsLocal(branch, directory);
+  const remoteExists = branchExistsRemote(branch, directory);
 
   const worktreesRoot = join(directory, '.opencode', 'worktrees');
   const worktreePath = join(worktreesRoot, branch);
@@ -59,7 +55,13 @@ export const createWorktreeSession = (
       mkdirSync(worktreesRoot, { recursive: true });
     }
 
-    gitCreateWorktree(worktreePath, branch, baseBranch, directory);
+    if (localExists) {
+      checkoutExistingBranch(worktreePath, branch, directory, false);
+    } else if (remoteExists) {
+      checkoutExistingBranch(worktreePath, branch, directory, true);
+    } else {
+      gitCreateWorktree(worktreePath, branch, baseBranch, directory);
+    }
 
     return { success: true, worktreePath };
   } catch (err) {

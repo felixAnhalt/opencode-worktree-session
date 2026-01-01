@@ -58,6 +58,20 @@ export const createWorktree = (
   run(`git worktree add "${worktreePath}" -b "${branch}" "${baseBranch}"`, directory);
 };
 
+export const checkoutExistingBranch = (
+  worktreePath: string,
+  branch: string,
+  directory: string,
+  isRemote: boolean
+) => {
+  if (isRemote) {
+    run(`git fetch origin "${branch}"`, directory);
+    run(`git worktree add "${worktreePath}" "${branch}"`, directory);
+  } else {
+    run(`git worktree add "${worktreePath}" "${branch}"`, directory);
+  }
+};
+
 export const getMainRepoFromWorktree = (directory: string): string | null => {
   // Check if directory path contains '/.opencode/worktrees/'
   if (directory.includes('/.opencode/worktrees/')) {
