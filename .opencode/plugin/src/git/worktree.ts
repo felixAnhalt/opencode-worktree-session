@@ -10,6 +10,7 @@ import {
   hasChanges,
   isGitRepo,
   removeWorktree,
+  pruneWorktrees,
 } from './git.ts';
 
 export const cleanupWorktree = (
@@ -18,11 +19,17 @@ export const cleanupWorktree = (
   branch: string
 ): CleanupResult => {
   try {
+    // Prune stale worktree references before cleanup
+    pruneWorktrees(directory);
+
     if (hasChanges(worktreePath)) {
       commitAndPush(worktreePath, branch);
     }
 
     removeWorktree(worktreePath, directory);
+
+    // Prune again after removal to clean up references
+    pruneWorktrees(directory);
 
     return { success: true };
   } catch (err) {

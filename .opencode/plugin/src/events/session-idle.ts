@@ -2,6 +2,7 @@ import type { PluginClient } from '../types.ts';
 import { deleteSession, getSession, upsertSession } from '../state/state.ts';
 import { openOpencodeInDefaultTerminal } from '../terminal/terminal.ts';
 import { cleanupWorktree } from '../git/worktree.ts';
+import { getMainRepoFromWorktree } from '../git/git.ts';
 
 import type { Event } from '@opencode-ai/sdk';
 
@@ -25,23 +26,37 @@ export const handleSessionIdle = async (
     // Clear the pending flag first
     upsertSession(directory, sessionId, { pendingWorktreeDeletion: undefined });
 
-    // Perform the actual cleanup
-    const result = cleanupWorktree(directory, worktreePath, branch);
+    // Get the main repo root - critical for cleanup to work from correct directory
+    const mainRepo = getMainRepoFromWorktree(directory) || directory;
 
-    if (result.success) {
-      deleteSession(directory, sessionId);
+    try {
+      // Perform the actual cleanup from the main repo
+      const result = cleanupWorktree(mainRepo, worktreePath, branch);
+
+      if (result.success) {
+        deleteSession(directory, sessionId);
+        client.tui.showToast({
+          body: {
+            title: 'Worktree Deleted',
+            message: `Committed & cleaned ${branch}`,
+            variant: 'success',
+          },
+        });
+      } else {
+        client.tui.showToast({
+          body: {
+            title: 'Deletion Failed',
+            message: result.error || 'Unknown error',
+            variant: 'error',
+          },
+        });
+      }
+    } catch (err) {
+      // Catch any synchronous errors that weren't caught by cleanupWorktree
       client.tui.showToast({
         body: {
-          title: 'Worktree Deleted',
-          message: `Committed & cleaned ${branch}`,
-          variant: 'success',
-        },
-      });
-    } else {
-      client.tui.showToast({
-        body: {
-          title: 'Deletion Failed',
-          message: result.error || 'Unknown error',
+          title: 'Deletion Error',
+          message: String(err),
           variant: 'error',
         },
       });
