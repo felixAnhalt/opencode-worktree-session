@@ -1,6 +1,6 @@
 {
   "name": "@tmegit/opencode-worktree-session",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "OpenCode plugin that manages Git worktrees for AI sessions",
   "scripts": {
     "typecheck": "tsc --noEmit",
