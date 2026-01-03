@@ -16,9 +16,19 @@ vi.mock('./git.ts', () => ({
   commitAndPush: vi.fn(),
   removeWorktree: vi.fn(),
   createWorktree: vi.fn(),
+  pruneWorktrees: vi.fn(),
+  checkoutExistingBranch: vi.fn(),
+  fetchBranch: vi.fn(),
+  getAheadBehind: vi.fn(),
+  mergeFastForward: vi.fn(),
+}));
+
+vi.mock('../config/config.ts', () => ({
+  loadConfig: vi.fn(),
 }));
 
 const gitMock = await import('./git.ts');
+const configMock = await import('../config/config.ts');
 const { cleanupWorktree, createWorktreeSession } = await import('./worktree.ts');
 
 describe('worktree service', () => {
@@ -100,6 +110,7 @@ describe('worktree service', () => {
       vi.mocked(gitMock.branchExistsLocal).mockReturnValue(false);
       vi.mocked(gitMock.branchExistsRemote).mockReturnValue(false);
       vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(configMock.loadConfig).mockReturnValue({});
     });
 
     it('should create worktree successfully', () => {
@@ -145,28 +156,62 @@ describe('worktree service', () => {
       expect(gitMock.createWorktree).not.toHaveBeenCalled();
     });
 
-    it('should return error when local branch exists', () => {
+    it('should checkout and return success when local branch exists and prefer local', () => {
       vi.mocked(gitMock.branchExistsLocal).mockReturnValue(true);
+      // Simulate local ahead (localAhead > 0) so we prefer local and do not fetch
+      vi.mocked(gitMock.getAheadBehind).mockReturnValue({ originAhead: 0, localAhead: 1 });
 
       const result = createWorktreeSession(mockDirectory, mockBranch);
 
+      expect(gitMock.checkoutExistingBranch).toHaveBeenCalledWith(
+        join(mockDirectory, '.opencode', 'worktrees', mockBranch),
+        mockBranch,
+        mockDirectory,
+        false
+      );
+
       expect(result).toEqual({
-        success: false,
-        error: 'Local branch exists',
+        success: true,
+        worktreePath: join(mockDirectory, '.opencode', 'worktrees', mockBranch),
       });
-      expect(gitMock.createWorktree).not.toHaveBeenCalled();
     });
 
-    it('should return error when remote branch exists', () => {
+    it('should fetch and fast-forward when remote is ahead', () => {
+      vi.mocked(gitMock.branchExistsLocal).mockReturnValue(true);
+      // Simulate remote ahead
+      vi.mocked(gitMock.getAheadBehind).mockReturnValue({ originAhead: 2, localAhead: 0 });
+
+      const result = createWorktreeSession(mockDirectory, mockBranch);
+
+      expect(gitMock.fetchBranch).toHaveBeenCalledWith(mockBranch, mockDirectory);
+      expect(gitMock.mergeFastForward).toHaveBeenCalledWith(
+        mockBranch,
+        join(mockDirectory, '.opencode', 'worktrees', mockBranch)
+      );
+      expect(result).toEqual({
+        success: true,
+        worktreePath: join(mockDirectory, '.opencode', 'worktrees', mockBranch),
+      });
+    });
+
+    it('should fetch and create worktree when only remote exists', () => {
+      vi.mocked(gitMock.branchExistsLocal).mockReturnValue(false);
       vi.mocked(gitMock.branchExistsRemote).mockReturnValue(true);
 
       const result = createWorktreeSession(mockDirectory, mockBranch);
 
+      expect(gitMock.fetchBranch).toHaveBeenCalledWith(mockBranch, mockDirectory);
+      expect(gitMock.checkoutExistingBranch).toHaveBeenCalledWith(
+        join(mockDirectory, '.opencode', 'worktrees', mockBranch),
+        mockBranch,
+        mockDirectory,
+        true
+      );
+
       expect(result).toEqual({
-        success: false,
-        error: 'Remote branch exists',
+        success: true,
+        worktreePath: join(mockDirectory, '.opencode', 'worktrees', mockBranch),
       });
-      expect(gitMock.createWorktree).not.toHaveBeenCalled();
     });
 
     it('should create worktrees directory if it does not exist', () => {
@@ -238,6 +283,64 @@ describe('worktree service', () => {
     });
   });
 
+  describe('sync behavior configuration', () => {
+    beforeEach(() => {
+      vi.mocked(gitMock.isGitRepo).mockReturnValue(true);
+      vi.mocked(gitMock.currentBranch).mockReturnValue('main');
+      vi.mocked(gitMock.branchExistsLocal).mockReturnValue(true);
+      vi.mocked(gitMock.branchExistsRemote).mockReturnValue(false);
+      vi.mocked(existsSync).mockReturnValue(true);
+    });
+
+    it('should always fetch when sync behavior is "always"', () => {
+      vi.mocked(configMock.loadConfig).mockReturnValue({
+        worktreeSync: { behavior: 'always' },
+      });
+
+      createWorktreeSession(mockDirectory, mockBranch);
+
+      expect(gitMock.fetchBranch).toHaveBeenCalledWith(mockBranch, mockDirectory);
+      expect(gitMock.mergeFastForward).toHaveBeenCalledWith(
+        mockBranch,
+        join(mockDirectory, '.opencode', 'worktrees', mockBranch)
+      );
+    });
+
+    it('should never fetch when sync behavior is "never"', () => {
+      vi.mocked(configMock.loadConfig).mockReturnValue({
+        worktreeSync: { behavior: 'never' },
+      });
+      vi.mocked(gitMock.getAheadBehind).mockReturnValue({ originAhead: 2, localAhead: 0 });
+
+      createWorktreeSession(mockDirectory, mockBranch);
+
+      expect(gitMock.fetchBranch).not.toHaveBeenCalled();
+      expect(gitMock.mergeFastForward).not.toHaveBeenCalled();
+    });
+
+    it('should fetch when remote is ahead with "prefer-local" (default)', () => {
+      vi.mocked(configMock.loadConfig).mockReturnValue({});
+      vi.mocked(gitMock.getAheadBehind).mockReturnValue({ originAhead: 2, localAhead: 0 });
+
+      createWorktreeSession(mockDirectory, mockBranch);
+
+      expect(gitMock.fetchBranch).toHaveBeenCalledWith(mockBranch, mockDirectory);
+      expect(gitMock.mergeFastForward).toHaveBeenCalled();
+    });
+
+    it('should not fetch when local is ahead with "prefer-local"', () => {
+      vi.mocked(configMock.loadConfig).mockReturnValue({
+        worktreeSync: { behavior: 'prefer-local' },
+      });
+      vi.mocked(gitMock.getAheadBehind).mockReturnValue({ originAhead: 0, localAhead: 3 });
+
+      createWorktreeSession(mockDirectory, mockBranch);
+
+      expect(gitMock.fetchBranch).not.toHaveBeenCalled();
+      expect(gitMock.mergeFastForward).not.toHaveBeenCalled();
+    });
+  });
+
   describe('validation order', () => {
     it('should check git repo first', () => {
       vi.mocked(gitMock.isGitRepo).mockReturnValue(false);
@@ -266,7 +369,7 @@ describe('worktree service', () => {
       createWorktreeSession(mockDirectory, mockBranch);
 
       expect(gitMock.branchExistsLocal).toHaveBeenCalled();
-      expect(gitMock.branchExistsRemote).not.toHaveBeenCalled();
+      expect(gitMock.branchExistsRemote).toHaveBeenCalled();
     });
   });
 });

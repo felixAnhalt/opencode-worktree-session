@@ -8,6 +8,7 @@ import { getSystemPromptForWorktree } from './src/system-prompt/system-prompt.ts
 import { createWorktreeTool } from './src/tools/create-worktree.ts';
 import { deleteWorktreeTool } from './src/tools/delete-worktree.ts';
 import { setPostWorktreeTool } from './src/tools/set-post-worktree.ts';
+import { setWorktreeSyncTool } from './src/tools/set-worktree-sync.ts';
 
 export const GitWorktreeSessionPlugin: Plugin = async ({ client, worktree, directory }) => {
   return {
@@ -53,6 +54,7 @@ export const GitWorktreeSessionPlugin: Plugin = async ({ client, worktree, direc
       createworktree: createWorktreeTool(directory, client),
       deleteworktree: deleteWorktreeTool(directory, worktree, client),
       setpostworktree: setPostWorktreeTool(directory, client),
+      setworktreesync: setWorktreeSyncTool(directory, client),
     },
   };
 };

@@ -76,6 +76,29 @@ export const checkoutExistingBranch = (
   }
 };
 
+export const fetchBranch = (branch: string, directory: string) => {
+  run(`git fetch origin "${branch}"`, directory);
+};
+
+export const getAheadBehind = (
+  branch: string,
+  directory: string
+): { originAhead: number; localAhead: number } => {
+  try {
+    const out = run(`git rev-list --left-right --count origin/${branch}...${branch}`, directory);
+    const parts = out.split(/\s+/).filter(Boolean);
+    const originAhead = Number(parts[0] ?? 0);
+    const localAhead = Number(parts[1] ?? 0);
+    return { originAhead, localAhead };
+  } catch {
+    return { originAhead: 0, localAhead: 0 };
+  }
+};
+
+export const mergeFastForward = (branch: string, worktreePath: string) => {
+  run(`git merge --ff-only origin/${branch}`, worktreePath);
+};
+
 export const getMainRepoFromWorktree = (directory: string): string | null => {
   // Check if directory path contains '/.opencode/worktrees/'
   if (directory.includes('/.opencode/worktrees/')) {
