@@ -7,6 +7,7 @@ import { handleSessionIdle } from './src/events/session-idle.ts';
 import { getSystemPromptForWorktree } from './src/system-prompt/system-prompt.ts';
 import { createWorktreeTool } from './src/tools/create-worktree.ts';
 import { deleteWorktreeTool } from './src/tools/delete-worktree.ts';
+import { setPostWorktreeTool } from './src/tools/set-post-worktree.ts';
 
 export const GitWorktreeSessionPlugin: Plugin = async ({ client, worktree, directory }) => {
   return {
@@ -51,6 +52,7 @@ export const GitWorktreeSessionPlugin: Plugin = async ({ client, worktree, direc
     tool: {
       createworktree: createWorktreeTool(directory, client),
       deleteworktree: deleteWorktreeTool(directory, worktree, client),
+      setpostworktree: setPostWorktreeTool(directory, client),
     },
   };
 };
