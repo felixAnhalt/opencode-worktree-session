@@ -26,4 +26,5 @@ export type PluginConfig = {
   postWorktree?: PostWorktreeConfig;
   worktreeSync?: WorktreeSyncConfig;
   terminal?: TerminalConfig;
+  configToolsAvailable?: boolean;
 };

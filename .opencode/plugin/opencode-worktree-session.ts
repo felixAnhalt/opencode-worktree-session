@@ -10,8 +10,24 @@ import { deleteWorktreeTool } from './src/tools/delete-worktree.ts';
 import { setPostWorktreeTool } from './src/tools/set-post-worktree.ts';
 import { setWorktreeSyncTool } from './src/tools/set-worktree-sync.ts';
 import { setTerminalTool } from './src/tools/set-terminal.ts';
+import { loadConfig } from './src/config/config.ts';
+import type { ToolDefinition } from '@opencode-ai/plugin/tool';
 
 export const GitWorktreeSessionPlugin: Plugin = async ({ client, worktree, directory }) => {
+  const config = loadConfig(directory);
+  const configToolsAvailable = config.configToolsAvailable ?? true;
+
+  const tools: Record<string, ToolDefinition> = {
+    createworktree: createWorktreeTool(directory, client),
+    deleteworktree: deleteWorktreeTool(directory, worktree, client),
+  };
+
+  if (configToolsAvailable) {
+    tools.setpostworktree = setPostWorktreeTool(directory, client);
+    tools.setworktreesync = setWorktreeSyncTool(directory, client);
+    tools.setterminal = setTerminalTool(directory, client);
+  }
+
   return {
     event: async ({ event }) => {
       if (event.type === 'session.created') {
@@ -51,12 +67,6 @@ export const GitWorktreeSessionPlugin: Plugin = async ({ client, worktree, direc
       output.system.push(...prompts);
     },
 
-    tool: {
-      createworktree: createWorktreeTool(directory, client),
-      deleteworktree: deleteWorktreeTool(directory, worktree, client),
-      setpostworktree: setPostWorktreeTool(directory, client),
-      setworktreesync: setWorktreeSyncTool(directory, client),
-      setterminal: setTerminalTool(directory, client),
-    },
+    tool: tools,
   };
 };

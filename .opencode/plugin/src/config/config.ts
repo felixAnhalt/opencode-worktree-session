@@ -8,7 +8,8 @@ const resolveRepoRoot = (directory: string): string => {
   return mainRepo || directory;
 };
 
-const getConfigFilePath = (repoRoot: string): string => join(repoRoot, '.opencode', 'config.json');
+const getConfigFilePath = (repoRoot: string): string =>
+  join(repoRoot, '.opencode', 'opencode-worktree-session-config.json');
 
 export const loadConfig = (directory: string): PluginConfig => {
   try {

@@ -30,7 +30,7 @@ describe('config integration (real fs)', () => {
 
     writeConfig(repo, cfg);
 
-    const cfgPath = join(opencodeDir, 'config.json');
+    const cfgPath = join(opencodeDir, 'opencode-worktree-session-config.json');
     expect(existsSync(cfgPath)).toBe(true);
 
     const raw = readFileSync(cfgPath, 'utf-8');
