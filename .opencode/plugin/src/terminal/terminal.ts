@@ -184,17 +184,19 @@ export const openOpencodeInDefaultTerminal = (
 
       if (termConfig.mode === 'custom') {
         // Custom binary with optional args
-        const args = termConfig.args ? termConfig.args.split(/\s+/) : [];
+        const baseArgs = termConfig.args ? termConfig.args.split(/\s+/) : [];
+        const cmdArgs = [
+          ...baseArgs,
+          termConfig.workingDirectoryArgument!,
+          worktreePath,
+          termConfig.commandFlag!,
+          'opencode',
+          '--session',
+          sessionId,
+        ];
+
         try {
-          spawnDetached(termConfig.bin, [
-            ...args,
-            '--working-directory',
-            worktreePath,
-            '-e',
-            'opencode',
-            '--session',
-            sessionId,
-          ]);
+          spawnDetached(termConfig.bin, cmdArgs);
           return;
         } catch {
           // Fall through to default behavior

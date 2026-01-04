@@ -13,7 +13,13 @@ export type SupportedTerminal = 'Alacritty' | 'iTerm' | 'iTerm2' | 'Terminal';
 
 export type TerminalConfig =
   | { mode: 'default' }
-  | { mode: 'custom'; bin: string; args?: string }
+  | {
+      mode: 'custom';
+      bin: string;
+      workingDirectoryArgument: string;
+      commandFlag: string;
+      args?: string;
+    }
   | { mode: 'specific'; terminal: SupportedTerminal };
 
 export type PluginConfig = {

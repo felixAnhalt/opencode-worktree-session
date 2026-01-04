@@ -34,7 +34,15 @@ describe('config terminal behavior', () => {
   });
 
   it('writes and reads custom terminal config', () => {
-    const cfg = { terminal: { mode: 'custom' as const, bin: 'kitty', args: '--single-instance' } };
+    const cfg = {
+      terminal: {
+        mode: 'custom' as const,
+        bin: 'kitty',
+        workingDirectoryArgument: '-d',
+        commandFlag: '-e',
+        args: '--single-instance',
+      },
+    };
 
     writeConfig(repo, cfg);
 
@@ -42,7 +50,32 @@ describe('config terminal behavior', () => {
     expect(loaded.terminal?.mode).toBe('custom');
     if (loaded.terminal?.mode === 'custom') {
       expect(loaded.terminal.bin).toBe('kitty');
+      expect(loaded.terminal.workingDirectoryArgument).toBe('-d');
+      expect(loaded.terminal.commandFlag).toBe('-e');
       expect(loaded.terminal.args).toBe('--single-instance');
+    }
+  });
+
+  it('writes and reads custom terminal config with working directory and command flag', () => {
+    const cfg = {
+      terminal: {
+        mode: 'custom' as const,
+        bin: 'alacritty',
+        args: '--title MyTerminal',
+        workingDirectoryArgument: '--working-directory',
+        commandFlag: '-e',
+      },
+    };
+
+    writeConfig(repo, cfg);
+
+    const loaded = loadConfig(repo);
+    expect(loaded.terminal?.mode).toBe('custom');
+    if (loaded.terminal?.mode === 'custom') {
+      expect(loaded.terminal.bin).toBe('alacritty');
+      expect(loaded.terminal.args).toBe('--title MyTerminal');
+      expect(loaded.terminal.workingDirectoryArgument).toBe('--working-directory');
+      expect(loaded.terminal.commandFlag).toBe('-e');
     }
   });
 
@@ -77,7 +110,12 @@ describe('config terminal behavior', () => {
 
     const updated = {
       ...loadConfig(repo),
-      terminal: { mode: 'custom' as const, bin: 'wezterm' },
+      terminal: {
+        mode: 'custom' as const,
+        bin: 'wezterm',
+        workingDirectoryArgument: '--cwd',
+        commandFlag: 'start --',
+      },
     };
     writeConfig(repo, updated);
 
@@ -86,6 +124,8 @@ describe('config terminal behavior', () => {
     expect(final.terminal?.mode).toBe('custom');
     if (final.terminal?.mode === 'custom') {
       expect(final.terminal.bin).toBe('wezterm');
+      expect(final.terminal.workingDirectoryArgument).toBe('--cwd');
+      expect(final.terminal.commandFlag).toBe('start --');
     }
   });
 });
