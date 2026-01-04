@@ -19,7 +19,7 @@ jobs:
       releases_created: ${{ steps.release-please.outputs.releases_created }}
       prs_created: ${{ steps.release-please.outputs.prs_created }}
     steps:
-      - uses: google-github-actions/release-please-action@v4
+      - uses: googleapis/release-please-action@v4.4.0
         id: release-please
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
