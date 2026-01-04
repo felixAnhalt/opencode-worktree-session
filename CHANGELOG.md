@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/felixAnhalt/opencode-worktree-session/compare/v1.0.0...v1.1.0) (2026-01-04)
+
+
+### Features
+
+* add correct entry for dist ([060b313](https://github.com/felixAnhalt/opencode-worktree-session/commit/060b31391b673f04a7464b35fb93758df1209d39))
+
 ## 1.0.0 (2026-01-04)
 
 
