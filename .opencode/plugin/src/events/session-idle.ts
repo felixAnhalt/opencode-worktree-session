@@ -72,7 +72,7 @@ export const handleSessionIdle = async (
     upsertSession(directory, sessionId, { pendingWorktreeSpawn: undefined });
 
     // Spawn the terminal with the session ID
-    openOpencodeInDefaultTerminal(worktreePath, sessionID);
+    openOpencodeInDefaultTerminal(worktreePath, sessionID, directory);
 
     client.tui.showToast({
       body: {

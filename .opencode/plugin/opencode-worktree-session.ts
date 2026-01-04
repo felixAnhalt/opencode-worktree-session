@@ -9,6 +9,7 @@ import { createWorktreeTool } from './src/tools/create-worktree.ts';
 import { deleteWorktreeTool } from './src/tools/delete-worktree.ts';
 import { setPostWorktreeTool } from './src/tools/set-post-worktree.ts';
 import { setWorktreeSyncTool } from './src/tools/set-worktree-sync.ts';
+import { setTerminalTool } from './src/tools/set-terminal.ts';
 
 export const GitWorktreeSessionPlugin: Plugin = async ({ client, worktree, directory }) => {
   return {
@@ -55,6 +56,7 @@ export const GitWorktreeSessionPlugin: Plugin = async ({ client, worktree, direc
       deleteworktree: deleteWorktreeTool(directory, worktree, client),
       setpostworktree: setPostWorktreeTool(directory, client),
       setworktreesync: setWorktreeSyncTool(directory, client),
+      setterminal: setTerminalTool(directory, client),
     },
   };
 };
