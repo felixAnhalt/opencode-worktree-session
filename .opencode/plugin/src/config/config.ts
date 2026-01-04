@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { PluginConfig } from './types.ts';
 import { getMainRepoFromWorktree } from '../git/git.ts';
+import { OPENCODE_CONFIG_DIR, OPENCODE_CONFIG_NAME } from './constants.ts';
 
 const resolveRepoRoot = (directory: string): string => {
   const mainRepo = getMainRepoFromWorktree(directory);
@@ -9,7 +10,7 @@ const resolveRepoRoot = (directory: string): string => {
 };
 
 const getConfigFilePath = (repoRoot: string): string =>
-  join(repoRoot, '.opencode', 'opencode-worktree-session-config.json');
+  join(repoRoot, OPENCODE_CONFIG_DIR, OPENCODE_CONFIG_NAME);
 
 export const loadConfig = (directory: string): PluginConfig => {
   try {
@@ -27,7 +28,7 @@ export const loadConfig = (directory: string): PluginConfig => {
 
 export const writeConfig = (directory: string, config: PluginConfig) => {
   const repoRoot = resolveRepoRoot(directory);
-  const dir = join(repoRoot, '.opencode');
+  const dir = join(repoRoot, OPENCODE_CONFIG_DIR);
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }

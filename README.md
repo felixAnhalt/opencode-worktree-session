@@ -23,24 +23,6 @@ Add to your `opencode.json`:
 }
 ```
 
-Then run:
-
-```bash
-npm install @tmegit/opencode-worktree-session
-```
-
-### Manual
-
-1. Create a directory for the plugin in your OpenCode project:
-
-   ```bash
-   mkdir -p .opencode/plugins/git-worktree-session
-
-   ```
-
-2. Copy the plugin file into that directory.
-3. OpenCode will automatically detect and load the plugin on the next session start.
-
 ## Workflow
 
 1. **Start Session:** Run `opencode`.
@@ -60,33 +42,7 @@ npm install @tmegit/opencode-worktree-session
 - Git installed and configured in PATH
 - OpenCode CLI
 
-## Development
-
-- `bun run typecheck` - TypeScript type checking
-- `bun run lint` - Fix linting issues
-- `bun run format` - Format code with Prettier
-- `bun run test` - Run tests
-- `bun run build` - Build the plugin
-
 ## Config
-
-Configure the plugin in `.opencode/opencode-worktree-session-config.json`.
-
-- `terminal` — Controls how the plugin launches a terminal.
-  - `mode` — launch mode
-  - `bin` — terminal binary
-  - `args` — extra args
-  - `workingDirectoryArgument` — workdir flag
-  - `commandFlag` — command flag
-
-- `postWorktree` — Command run after worktree creation.
-  - `cmd` — command to run
-  - `args` — command args
-
-- `configToolsAvailable` — Enable or disable config helper tools (affects `setpostworktree`, `setworktreesync`, `setterminal`).
-  - `boolean` — true/false
-
-Note: change `configToolsAvailable` and restart your OpenCode session for it to take effect.
 
 Example (save as `.opencode/opencode-worktree-session-config.json`):
 
@@ -106,6 +62,33 @@ Example (save as `.opencode/opencode-worktree-session-config.json`):
   "configToolsAvailable": false
 }
 ```
+
+Configure the plugin in `.opencode/opencode-worktree-session-config.json`.
+
+- `terminal` — Controls how the plugin launches a terminal.
+  - `mode` — launch mode: `default` | `custom` | `specific`
+  - `bin` — terminal binary
+  - `args` — extra args
+  - `workingDirectoryArgument` — workdir flag
+  - `commandFlag` — command flag
+  - `terminal` (specific mode) — `Alacritty`, `iTerm`, `iTerm2`, `Terminal`
+
+- `postWorktree` — Command run after worktree creation.
+  - `cmd` — command to run
+  - `args` — command args
+
+- `configToolsAvailable` — Enable or disable config helper tools (affects `setpostworktree`, `setworktreesync`, `setterminal`).
+  - `boolean` — true/false
+
+Note: change `configToolsAvailable` and restart your OpenCode session for it to take effect.
+
+## Development
+
+- `bun run typecheck` - TypeScript type checking
+- `bun run lint` - Fix linting issues
+- `bun run format` - Format code with Prettier
+- `bun run test` - Run tests
+- `bun run build` - Build the plugin
 
 ## License
 

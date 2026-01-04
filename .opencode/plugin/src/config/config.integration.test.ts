@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { loadConfig, writeConfig, updateConfig } from './config.ts';
+import { OPENCODE_CONFIG_DIR, OPENCODE_CONFIG_NAME } from './constants.ts';
 
 describe('config integration (real fs)', () => {
   let tmp: string;
@@ -14,7 +15,7 @@ describe('config integration (real fs)', () => {
     tmp = mkdtempSync(join(tmpdir(), 'opencode-config-test-'));
     repo = join(tmp, 'repo');
     mkdirSync(repo);
-    opencodeDir = join(repo, '.opencode');
+    opencodeDir = join(repo, OPENCODE_CONFIG_DIR);
   });
 
   afterEach(() => {
@@ -30,7 +31,7 @@ describe('config integration (real fs)', () => {
 
     writeConfig(repo, cfg);
 
-    const cfgPath = join(opencodeDir, 'opencode-worktree-session-config.json');
+    const cfgPath = join(opencodeDir, OPENCODE_CONFIG_NAME);
     expect(existsSync(cfgPath)).toBe(true);
 
     const raw = readFileSync(cfgPath, 'utf-8');
@@ -44,7 +45,7 @@ describe('config integration (real fs)', () => {
     const initial = { postWorktree: { cmd: 'code', args: '--reuse-window' }, other: 1 };
     writeConfig(repo, initial);
 
-    const worktreePath = join(repo, '.opencode', 'worktrees', 'feat', 'branch');
+    const worktreePath = join(repo, OPENCODE_CONFIG_DIR, 'worktrees', 'feat', 'branch');
 
     const loadedBefore = loadConfig(worktreePath);
     expect(loadedBefore).toEqual(initial);
