@@ -44,7 +44,7 @@
     ".opencode/plugin/src/version.ts"
   ],
   "dependencies": {
-    "@opencode-ai/plugin": "1.0.207"
+    "@opencode-ai/plugin": "1.0.224"
   },
   "devDependencies": {
     "@eslint/js": "9.39.2",

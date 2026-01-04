@@ -3,6 +3,8 @@ import { join } from 'node:path';
 import type { CleanupResult } from '../state/types.ts';
 import type { SyncBehavior } from '../config/types.ts';
 import { loadConfig } from '../config/config.ts';
+import { OPENCODE_CONFIG_DIR } from '../config/constants.ts';
+import { WORKTREES_DIR } from './constants.ts';
 import {
   branchExistsLocal,
   branchExistsRemote,
@@ -60,7 +62,7 @@ export const createWorktreeSession = (
   // check remote as well; we'll prefer local when it's newer
   const remoteExists = branchExistsRemote(branch, directory);
 
-  const worktreesRoot = join(directory, '.opencode', 'worktrees');
+  const worktreesRoot = join(directory, OPENCODE_CONFIG_DIR, WORKTREES_DIR);
   const worktreePath = join(worktreesRoot, branch);
 
   try {

@@ -1,4 +1,5 @@
 import { execSync } from 'node:child_process';
+import { GIT_COMMIT_MESSAGE, WORKTREE_PATH_SEPARATOR } from './constants.ts';
 
 const run = (cmd: string, cwd?: string): string =>
   execSync(cmd, {
@@ -41,7 +42,7 @@ export const branchExistsRemote = (branch: string, cwd: string): boolean => {
 
 export const commitAndPush = (worktreePath: string, branch: string) => {
   run('git add -A', worktreePath);
-  run(`git commit -m "chore(opencode): session snapshot"`, worktreePath);
+  run(`git commit -m "${GIT_COMMIT_MESSAGE}"`, worktreePath);
   run(`git push -u origin "${branch}"`, worktreePath);
 };
 
@@ -100,10 +101,10 @@ export const mergeFastForward = (branch: string, worktreePath: string) => {
 };
 
 export const getMainRepoFromWorktree = (directory: string): string | null => {
-  // Check if directory path contains '/.opencode/worktrees/'
-  if (directory.includes('/.opencode/worktrees/')) {
+  // Check if directory path contains the worktree separator
+  if (directory.includes(WORKTREE_PATH_SEPARATOR)) {
     // Extract main repo by going up to before .opencode
-    const parts = directory.split('/.opencode/worktrees/');
+    const parts = directory.split(WORKTREE_PATH_SEPARATOR);
     return parts[0];
   }
   return null;

@@ -2,6 +2,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { loadConfig } from '../config/config.ts';
 import type { SupportedTerminal } from '../config/types.ts';
+import { ALACRITTY_BINARY_PATH, ENV_OPENCODE_TERMINAL, ENV_TERMINAL } from './constants.ts';
 
 /* eslint-disable */
 type MacOsTerminalRunner = (_worktreePath: string, _sessionId: string) => void;
@@ -17,8 +18,8 @@ const isMacAppInstalled = (appName: string): boolean => {
 };
 
 const resolveTerminalFromEnv = (): string | null => {
-  const opencodeTerminal = process.env.OPENCODE_TERMINAL;
-  const terminal = process.env.TERMINAL;
+  const opencodeTerminal = process.env[ENV_OPENCODE_TERMINAL];
+  const terminal = process.env[ENV_TERMINAL];
 
   const candidate = opencodeTerminal || terminal;
   if (!candidate) {
@@ -123,7 +124,7 @@ end run
 
 const runInAlacritty: MacOsTerminalRunner = (worktreePath: string, sessionId: string) => {
   // Use direct binary path instead of 'open -a' for more reliable argument passing
-  spawnDetached('/Applications/Alacritty.app/Contents/MacOS/alacritty', [
+  spawnDetached(ALACRITTY_BINARY_PATH, [
     '--working-directory',
     worktreePath,
     '-e',
