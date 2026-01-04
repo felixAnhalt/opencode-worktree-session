@@ -1,7 +1,8 @@
 {
   "name": "@tmegit/opencode-worktree-session",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "OpenCode plugin that manages Git worktrees for AI sessions",
+  "main": "./dist/opencode-worktree-session.js",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "mise run lint --fix",
@@ -44,7 +45,7 @@
     ".opencode/plugin/src/version.ts"
   ],
   "dependencies": {
-    "@opencode-ai/plugin": "1.0.224"
+    "@opencode-ai/plugin": "1.1.1"
   },
   "devDependencies": {
     "@eslint/js": "9.39.2",
