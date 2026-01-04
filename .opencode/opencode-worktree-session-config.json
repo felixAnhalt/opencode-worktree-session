@@ -1,0 +1,14 @@
+{
+  "terminal": {
+    "mode": "custom",
+    "bin": "alacritty",
+    "args": "",
+    "workingDirectoryArgument": "--working-directory",
+    "commandFlag": "-e"
+  },
+  "postWorktree": {
+    "cmd": "webstorm",
+    "args": ""
+  },
+  "configToolsAvailable": false
+}

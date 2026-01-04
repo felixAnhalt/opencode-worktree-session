@@ -1,17 +1,18 @@
 import { execSync, spawn } from 'node:child_process';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { openOpencodeInDefaultTerminal } from './terminal.ts';
 
 describe('terminal integration - real spawns', () => {
-  const testDir = join(process.cwd(), '.test-worktrees');
+  const testDir = mkdtempSync(join(tmpdir(), 'opencode-test-'));
   const testWorktreePath = join(testDir, 'test-session-worktree');
   const testSessionId = `integration-test-${Date.now()}`;
 
   beforeAll(() => {
-    // Create test worktree directory
+    // Create test worktree directory in a tempdir
     mkdirSync(testWorktreePath, { recursive: true });
     writeFileSync(join(testWorktreePath, '.gitkeep'), '');
   });
@@ -32,11 +33,15 @@ describe('terminal integration - real spawns', () => {
           if (pid) {
             try {
               process.kill(Number(pid), 'SIGKILL');
-            } catch {}
+            } catch {
+              /* ignore errors */
+            }
           }
         }
       }
-    } catch {}
+    } catch {
+      /* ignore errors */
+    }
   });
 
   describe('platform detection', () => {
@@ -63,7 +68,6 @@ describe('terminal integration - real spawns', () => {
       });
 
       const isInstalled = !result.includes('not-found');
-      console.log('Alacritty installed:', isInstalled);
 
       // Just log the result, don't fail
       expect(typeof isInstalled).toBe('boolean');
@@ -87,7 +91,9 @@ describe('terminal integration - real spawns', () => {
         // Cleanup
         try {
           execSync(`pkill -f "${testSessionId}" 2>/dev/null || true`);
-        } catch {}
+        } catch {
+          /* ignore errors */
+        }
       }
     );
 
@@ -102,7 +108,9 @@ describe('terminal integration - real spawns', () => {
       // Cleanup
       try {
         execSync(`pkill -f "${testSessionId}" 2>/dev/null || true`);
-      } catch {}
+      } catch {
+        /* ignore errors */
+      }
     });
 
     it.skipIf(process.platform !== 'darwin')(
@@ -117,7 +125,9 @@ describe('terminal integration - real spawns', () => {
         // Cleanup
         try {
           execSync(`pkill -f "${specialSessionId}" 2>/dev/null || true`);
-        } catch {}
+        } catch {
+          /* ignore errors */
+        }
       }
     );
   });
@@ -133,7 +143,9 @@ describe('terminal integration - real spawns', () => {
       // Cleanup
       try {
         execSync(`pkill -f "${testSessionId}" 2>/dev/null || true`);
-      } catch {}
+      } catch {
+        /* ignore errors */
+      }
     });
 
     it.skipIf(process.platform !== 'darwin')('should handle empty session ID', () => {
@@ -144,7 +156,9 @@ describe('terminal integration - real spawns', () => {
       // Cleanup
       try {
         execSync('pkill -f "opencode --session" 2>/dev/null || true');
-      } catch {}
+      } catch {
+        /* ignore errors */
+      }
     });
   });
 

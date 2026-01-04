@@ -1,4 +1,5 @@
 import { execSync } from 'node:child_process';
+import { GIT_COMMIT_MESSAGE, WORKTREE_PATH_SEPARATOR } from './constants.ts';
 
 const run = (cmd: string, cwd?: string): string =>
   execSync(cmd, {
@@ -41,7 +42,7 @@ export const branchExistsRemote = (branch: string, cwd: string): boolean => {
 
 export const commitAndPush = (worktreePath: string, branch: string) => {
   run('git add -A', worktreePath);
-  run(`git commit -m "chore(opencode): session snapshot"`, worktreePath);
+  run(`git commit -m "${GIT_COMMIT_MESSAGE}"`, worktreePath);
   run(`git push -u origin "${branch}"`, worktreePath);
 };
 
@@ -76,11 +77,34 @@ export const checkoutExistingBranch = (
   }
 };
 
+export const fetchBranch = (branch: string, directory: string) => {
+  run(`git fetch origin "${branch}"`, directory);
+};
+
+export const getAheadBehind = (
+  branch: string,
+  directory: string
+): { originAhead: number; localAhead: number } => {
+  try {
+    const out = run(`git rev-list --left-right --count origin/${branch}...${branch}`, directory);
+    const parts = out.split(/\s+/).filter(Boolean);
+    const originAhead = Number(parts[0] ?? 0);
+    const localAhead = Number(parts[1] ?? 0);
+    return { originAhead, localAhead };
+  } catch {
+    return { originAhead: 0, localAhead: 0 };
+  }
+};
+
+export const mergeFastForward = (branch: string, worktreePath: string) => {
+  run(`git merge --ff-only origin/${branch}`, worktreePath);
+};
+
 export const getMainRepoFromWorktree = (directory: string): string | null => {
-  // Check if directory path contains '/.opencode/worktrees/'
-  if (directory.includes('/.opencode/worktrees/')) {
+  // Check if directory path contains the worktree separator
+  if (directory.includes(WORKTREE_PATH_SEPARATOR)) {
     // Extract main repo by going up to before .opencode
-    const parts = directory.split('/.opencode/worktrees/');
+    const parts = directory.split(WORKTREE_PATH_SEPARATOR);
     return parts[0];
   }
   return null;

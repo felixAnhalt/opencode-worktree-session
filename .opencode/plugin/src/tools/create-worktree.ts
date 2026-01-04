@@ -2,6 +2,7 @@ import { tool } from '@opencode-ai/plugin';
 import type { PluginClient } from '../types.ts';
 import { createWorktreeSession } from '../git/worktree.ts';
 import { upsertSession } from '../state/state.ts';
+import { runPostWorktreeHook } from '../hooks/post-worktree.ts';
 
 export const createWorktreeTool = (directory: string, client: PluginClient) =>
   tool({
@@ -26,6 +27,18 @@ export const createWorktreeTool = (directory: string, client: PluginClient) =>
           sessionID: context.sessionID,
         },
       });
+
+      // Execute post-worktree hook if configured
+      const hookResult = runPostWorktreeHook(directory, result.worktreePath);
+      if (hookResult.executed) {
+        client.tui.showToast({
+          body: {
+            title: 'Post-Worktree Hook',
+            message: hookResult.message,
+            variant: 'info',
+          },
+        });
+      }
 
       client.tui.showToast({
         body: {

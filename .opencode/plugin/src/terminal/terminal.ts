@@ -1,5 +1,8 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { loadConfig } from '../config/config.ts';
+import type { SupportedTerminal } from '../config/types.ts';
+import { ALACRITTY_BINARY_PATH, ENV_OPENCODE_TERMINAL, ENV_TERMINAL } from './constants.ts';
 
 /* eslint-disable */
 type MacOsTerminalRunner = (_worktreePath: string, _sessionId: string) => void;
@@ -15,8 +18,8 @@ const isMacAppInstalled = (appName: string): boolean => {
 };
 
 const resolveTerminalFromEnv = (): string | null => {
-  const opencodeTerminal = process.env.OPENCODE_TERMINAL;
-  const terminal = process.env.TERMINAL;
+  const opencodeTerminal = process.env[ENV_OPENCODE_TERMINAL];
+  const terminal = process.env[ENV_TERMINAL];
 
   const candidate = opencodeTerminal || terminal;
   if (!candidate) {
@@ -121,7 +124,7 @@ end run
 
 const runInAlacritty: MacOsTerminalRunner = (worktreePath: string, sessionId: string) => {
   // Use direct binary path instead of 'open -a' for more reliable argument passing
-  spawnDetached('/Applications/Alacritty.app/Contents/MacOS/alacritty', [
+  spawnDetached(ALACRITTY_BINARY_PATH, [
     '--working-directory',
     worktreePath,
     '-e',
@@ -169,7 +172,52 @@ const openOnLinux = (worktreePath: string, sessionId: string) => {
   ]);
 };
 
-export const openOpencodeInDefaultTerminal = (worktreePath: string, sessionId: string) => {
+export const openOpencodeInDefaultTerminal = (
+  worktreePath: string,
+  sessionId: string,
+  directory?: string
+) => {
+  // Check config first
+  if (directory) {
+    const config = loadConfig(directory);
+    if (config.terminal) {
+      const termConfig = config.terminal;
+
+      if (termConfig.mode === 'custom') {
+        // Custom binary with optional args
+        const baseArgs = termConfig.args ? termConfig.args.split(/\s+/) : [];
+        const cmdArgs = [
+          ...baseArgs,
+          termConfig.workingDirectoryArgument!,
+          worktreePath,
+          termConfig.commandFlag!,
+          'opencode',
+          '--session',
+          sessionId,
+        ];
+
+        try {
+          spawnDetached(termConfig.bin, cmdArgs);
+          return;
+        } catch {
+          // Fall through to default behavior
+        }
+      } else if (termConfig.mode === 'specific') {
+        // Use a specific supported terminal
+        const terminal = termConfig.terminal;
+        if (process.platform === 'darwin' && isMacAppInstalled(terminal)) {
+          const runner = getTerminalRunner(terminal);
+          if (runner) {
+            runner(worktreePath, sessionId);
+            return;
+          }
+        }
+        // Fall through if not available
+      }
+      // mode === 'default' falls through to default behavior below
+    }
+  }
+
   // Try environment variable first
   const envTerminal = resolveTerminalFromEnv();
   if (envTerminal) {
@@ -197,4 +245,18 @@ export const openOpencodeInDefaultTerminal = (worktreePath: string, sessionId: s
   }
 
   openOnLinux(worktreePath, sessionId);
+};
+
+const getTerminalRunner = (terminal: SupportedTerminal): MacOsTerminalRunner | null => {
+  switch (terminal) {
+    case 'Alacritty':
+      return runInAlacritty;
+    case 'iTerm':
+    case 'iTerm2':
+      return runInITerm;
+    case 'Terminal':
+      return runInAppleTerminal;
+    default:
+      return null;
+  }
 };

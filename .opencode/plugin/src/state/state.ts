@@ -2,6 +2,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { SessionState, StateFile } from './types.ts';
 import { getMainRepoFromWorktree } from '../git/git.ts';
+import { OPENCODE_CONFIG_DIR } from '../config/constants.ts';
+import { STATE_FILE_NAME } from './constants.ts';
 
 const resolveRepoRoot = (directory: string): string => {
   const mainRepo = getMainRepoFromWorktree(directory);
@@ -9,7 +11,7 @@ const resolveRepoRoot = (directory: string): string => {
 };
 
 const getStateFilePath = (repoRoot: string): string =>
-  join(repoRoot, '.opencode', 'worktree-session-state.json');
+  join(repoRoot, OPENCODE_CONFIG_DIR, STATE_FILE_NAME);
 
 const readStateFile = (repoRoot: string): StateFile => {
   try {
@@ -24,7 +26,7 @@ const readStateFile = (repoRoot: string): StateFile => {
 };
 
 const writeStateFile = (repoRoot: string, state: StateFile) => {
-  const dir = join(repoRoot, '.opencode');
+  const dir = join(repoRoot, OPENCODE_CONFIG_DIR);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   const stateFile = getStateFilePath(repoRoot);
   writeFileSync(stateFile, JSON.stringify(state, null, 2));
