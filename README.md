@@ -36,6 +36,18 @@ Add to your `opencode.json`:
 - Pushes to `origin`.
 - Removes the worktree safely.
 
+### Demo Videos
+
+**Creating a Worktree**
+  
+https://github.com/user-attachments/assets/58e59a3e-80eb-4877-b5c9-ae8b9f93e816
+
+**Deleting a Worktree**
+  
+https://github.com/user-attachments/assets/f30a8329-f8d0-4c8d-9785-5101cff67b9d
+
+
+
 ## Requirements
 
 - Node.js runtime
