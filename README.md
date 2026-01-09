@@ -38,8 +38,14 @@ Add to your `opencode.json`:
 
 ### Demo Videos
 
-- **[Creating a Worktree](resources/create_worktree.mov)** - See how the plugin automatically sets up an isolated Git worktree for your session.
-- **[Deleting a Worktree](resources/delete_worktree.mov)** - Watch the automatic cleanup process as the session ends.
+**Creating a Worktree**
+  
+https://github.com/user-attachments/assets/58e59a3e-80eb-4877-b5c9-ae8b9f93e816
+
+**Deleting a Worktree**
+  
+https://github.com/user-attachments/assets/f30a8329-f8d0-4c8d-9785-5101cff67b9d
+
 
 
 ## Requirements
