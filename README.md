@@ -36,6 +36,12 @@ Add to your `opencode.json`:
 - Pushes to `origin`.
 - Removes the worktree safely.
 
+### Demo Videos
+
+- **[Creating a Worktree](resources/create_worktree.mov)** - See how the plugin automatically sets up an isolated Git worktree for your session.
+- **[Deleting a Worktree](resources/delete_worktree.mov)** - Watch the automatic cleanup process as the session ends.
+
+
 ## Requirements
 
 - Node.js runtime
